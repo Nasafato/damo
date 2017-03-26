@@ -31,7 +31,7 @@ globalerror=0
 keep=0
 
 Usage() {
-    echo "Usage: testall.sh [options] [.mc files]"
+    echo "Usage: testall.sh [options] [.dm files]"
     echo "-k    Keep intermediate files"
     echo "-h    Print this help"
     exit 1
@@ -80,8 +80,8 @@ RunFail() {
 Check() {
     error=0
     basename=`echo $1 | sed 's/.*\\///
-                             s/.mc//'`
-    reffile=`echo $1 | sed 's/.mc$//'`
+                             s/.dm//'`
+    reffile=`echo $1 | sed 's/.dm$//'`
     basedir="`echo $1 | sed 's/\/[^\/]*$//'`/."
 
     echo -n "$basename..."
@@ -115,8 +115,8 @@ Check() {
 CheckFail() {
     error=0
     basename=`echo $1 | sed 's/.*\\///
-                             s/.mc//'`
-    reffile=`echo $1 | sed 's/.mc$//'`
+                             s/.dm//'`
+    reffile=`echo $1 | sed 's/.dm$//'`
     basedir="`echo $1 | sed 's/\/[^\/]*$//'`/."
 
     echo -n "$basename..."
@@ -177,7 +177,7 @@ then
     files=$@
 else
     # TODO new directory for tests
-    files="tests/test-*.mc tests/fail-*.mc"
+    files="tests/test-*.dm tests/fail-*.dm"
 fi
 
 for file in $files
