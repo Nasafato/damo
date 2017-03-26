@@ -42,7 +42,7 @@ build_global_stringptr
 
 let translate (globals, functions) =
   let context = L.global_context () in
-  let the_module = L.create_module context "Damo"
+  let the_module = L.create_module context "damo"
   and i32_t  = L.i32_type  context
   and num_t = L.double_type context
   and i8_t   = L.i8_type context

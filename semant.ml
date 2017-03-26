@@ -1,4 +1,4 @@
-(* Semantic checking for the MicroC compiler *)
+(* Semantic checking for the damo compiler *)
 
 open Ast
 
@@ -94,11 +94,14 @@ let check (globals, functions) =
     let rec expr = function
 	Literal _ -> Int
       | BoolLit _ -> Bool
+      (* NEW an expression can be a string literal *)
+      | StringLit _ -> String
       | Id s -> type_of_identifier s
       | Binop(e1, op, e2) as e -> let t1 = expr e1 and t2 = expr e2 in
 	(match op with
           Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
-	| Equal | Neq when t1 = t2 -> Bool
+  (* NEW we don't allow string equality, yet *)
+	| Equal | Neq when t1 = t2 && t1 <> String -> Bool
 	| Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
 	| And | Or when t1 = Bool && t2 = Bool -> Bool
         | _ -> raise (Failure ("illegal binary operator " ^
@@ -137,6 +140,8 @@ let check (globals, functions) =
     (* Verify a statement or throw an exception *)
     let rec stmt = function
 	Block sl -> let rec check_block = function
+          (* NEW this is subtle, but I think s should be verified using expr, not stmt
+          see AST, where stmt can take on value Return of type expr *)
            [Return _ as s] -> stmt s
          | Return _ :: _ -> raise (Failure "nothing may follow a return")
          | Block sl :: ss -> check_block (sl @ ss)
