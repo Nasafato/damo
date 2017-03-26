@@ -7,6 +7,6 @@ Compilation process, given source code:
 3. Generate intermediate representation (IR)
     - Is this `codegen.ml`?
 4. Augment that and turn into assembly code
-    - Involves `microc.ml`
+    - Involves `damo.ml`
 5. (bunch of stuff) that turns it into an executable
     - Linking everything in the `Makefile`
