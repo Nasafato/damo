@@ -1,17 +1,21 @@
 (* Abstract Syntax Tree and functions for printing it *)
 
+(* NEW mathematical operators *)
 type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
-          And | Or
+          And | Or | Exp | Log | Mod
 
 type uop = Neg | Not
 
-type typ = Int | Bool | Void
+(* NEW types *)
+type typ = Int | Bool | Num | String | Void
 
 type bind = typ * string
 
+(* NEW string literal *)
 type expr =
     Literal of int
   | BoolLit of bool
+  | StringLit of string
   | Id of string
   | Binop of expr * op * expr
   | Unop of uop * expr
@@ -39,6 +43,7 @@ type program = bind list * func_decl list
 
 (* Pretty-printing functions *)
 
+(* NEW printing mathematical operators *)
 let string_of_op = function
     Add -> "+"
   | Sub -> "-"
@@ -52,15 +57,20 @@ let string_of_op = function
   | Geq -> ">="
   | And -> "&&"
   | Or -> "||"
+  | Exp -> "^"
+  | Log -> "_"
+  | Mod -> "%"
 
 let string_of_uop = function
     Neg -> "-"
   | Not -> "!"
 
+(* NEW printing strings with quotes *)
 let rec string_of_expr = function
     Literal(l) -> string_of_int l
   | BoolLit(true) -> "true"
   | BoolLit(false) -> "false"
+  | StringLit(s) -> "\"" ^ s ^ "\""
   | Id(s) -> s
   | Binop(e1, o, e2) ->
       string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
@@ -83,10 +93,13 @@ let rec string_of_stmt = function
       string_of_expr e3  ^ ") " ^ string_of_stmt s
   | While(e, s) -> "while (" ^ string_of_expr e ^ ") " ^ string_of_stmt s
 
+(* NEW print string, print num *)
 let string_of_typ = function
     Int -> "int"
   | Bool -> "bool"
   | Void -> "void"
+  | String -> "string"
+  | Num -> "num"
 
 let string_of_vdecl (t, id) = string_of_typ t ^ " " ^ id ^ ";\n"
 

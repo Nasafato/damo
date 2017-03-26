@@ -25,6 +25,9 @@ open Ast
 %left LT GT LEQ GEQ
 %left PLUS MINUS
 %left TIMES DIVIDE
+%right EXP 
+%left LOG
+%right MOD
 %right NOT NEG
 
 %start program
@@ -64,6 +67,7 @@ typ:
     INT { Int }
   | BOOL { Bool }
   | VOID { Void }
+  | STRING { String }
 
 vdecl_list:
     /* nothing */    { [] }
@@ -95,11 +99,15 @@ expr:
     LITERAL          { Literal($1) }
   | TRUE             { BoolLit(true) }
   | FALSE            { BoolLit(false) }
+  | STRING_LIT        { StringLit($1) }
   | ID               { Id($1) }
   | expr PLUS   expr { Binop($1, Add,   $3) }
   | expr MINUS  expr { Binop($1, Sub,   $3) }
   | expr TIMES  expr { Binop($1, Mult,  $3) }
   | expr DIVIDE expr { Binop($1, Div,   $3) }
+  | expr EXP    expr { Binop($1, Exp, $3) }
+  | expr LOG    expr { Binop($1, Log, $3) }
+  | expr MOD    expr { Binop($1, Mod, $3) }
   | expr EQ     expr { Binop($1, Equal, $3) }
   | expr NEQ    expr { Binop($1, Neq,   $3) }
   | expr LT     expr { Binop($1, Less,  $3) }
