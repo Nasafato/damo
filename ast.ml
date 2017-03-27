@@ -15,9 +15,7 @@ type bind = typ * string
 type expr =
     Literal of int
   | BoolLit of bool
-  (* NEW literals *)
   | StringLit of string
-  | NumLit of float
   | Id of string
   | Binop of expr * op * expr
   | Unop of uop * expr
@@ -67,13 +65,12 @@ let string_of_uop = function
     Neg -> "-"
   | Not -> "!"
 
-(* NEW printing strings with quotes, nums *)
+(* NEW printing strings with quotes *)
 let rec string_of_expr = function
     Literal(l) -> string_of_int l
   | BoolLit(true) -> "true"
   | BoolLit(false) -> "false"
   | StringLit(s) -> "\"" ^ s ^ "\""
-  | NumLit(n) -> string_of_float n
   | Id(s) -> s
   | Binop(e1, o, e2) ->
       string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2

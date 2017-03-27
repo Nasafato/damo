@@ -94,20 +94,15 @@ let check (globals, functions) =
     let rec expr = function
 	Literal _ -> Int
       | BoolLit _ -> Bool
-      (* NEW an expressions can be other literals *)
+      (* NEW an expression can be a string literal *)
       | StringLit _ -> String
-      | NumLit _ -> Num
       | Id s -> type_of_identifier s
       | Binop(e1, op, e2) as e -> let t1 = expr e1 and t2 = expr e2 in
 	(match op with
-          (* NEW additional binary math operators *)
-          Add | Sub | Mult | Div | Exp | Log | Mod when t1 = Int && t2 = Int -> Int
-          (* NEW binary operations can combine two nums *)
-          | Add | Sub | Mult | Div | Exp | Log | Mod when t1 = Num && t2 = Num -> Num
-  (* NEW we don't allow string equality, yet. Num and Int allowed *)
-	| Equal | Neq when (t1 = Int && t1 = Int) || (t1 = Num && t2 = Num) -> Bool
-  (* NEW comparison allowed between two Nums or two Ints *)
-	| Less | Leq | Greater | Geq when (t1 = Int && t2 = Int) || (t1 = Num && t2 = Num) -> Bool
+          Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
+  (* NEW we don't allow string equality, yet *)
+	| Equal | Neq when t1 = t2 && t1 <> String -> Bool
+	| Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
 	| And | Or when t1 = Bool && t2 = Bool -> Bool
         | _ -> raise (Failure ("illegal binary operator " ^
               string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
@@ -115,9 +110,7 @@ let check (globals, functions) =
         )
       | Unop(op, e) as ex -> let t = expr e in
 	 (match op with
-     (* NEW Neg can apply to Int or Num *)
 	   Neg when t = Int -> Int
-   | Neg when t = Num -> Num
 	 | Not when t = Bool -> Bool
          | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
 	  		   string_of_typ t ^ " in " ^ string_of_expr ex)))
