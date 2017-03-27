@@ -12,7 +12,8 @@ open Ast
 %token STRING NUM
 %token DEF COLON
 %token <int> LITERAL
-%token <string> STRING_LIT
+%token <string> STRING_LITERAL
+%token <float> NUM_LITERAL
 %token <string> ID
 %token EOF
 
@@ -99,7 +100,8 @@ expr:
     LITERAL          { Literal($1) }
   | TRUE             { BoolLit(true) }
   | FALSE            { BoolLit(false) }
-  | STRING_LIT        { StringLit($1) }
+  | STRING_LITERAL   { StringLit($1) }
+  | NUM_LITERAL      { NumLit($1) }
   | ID               { Id($1) }
   | expr PLUS   expr { Binop($1, Add,   $3) }
   | expr MINUS  expr { Binop($1, Sub,   $3) }
