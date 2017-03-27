@@ -11,7 +11,6 @@ type typ = Int | Bool | Num | String | Void
 
 type bind = typ * string
 
-(* NEW string literal *)
 type expr =
     Literal of int
   | BoolLit of bool
@@ -51,6 +50,9 @@ let string_of_op = function
   | Sub -> "-"
   | Mult -> "*"
   | Div -> "/"
+  | Exp -> "^"
+  | Log -> "_"
+  | Mod -> "%"
   | Equal -> "=="
   | Neq -> "!="
   | Less -> "<"
@@ -59,9 +61,6 @@ let string_of_op = function
   | Geq -> ">="
   | And -> "&&"
   | Or -> "||"
-  | Exp -> "^"
-  | Log -> "_"
-  | Mod -> "%"
 
 let string_of_uop = function
     Neg -> "-"

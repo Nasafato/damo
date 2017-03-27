@@ -6,12 +6,12 @@
 let alpha = ['a'-'z' 'A'-'Z']
 let ascii = ([' '-'!' '#'-'[' ']'-'~'])
 let digit = ['0'-'9']
-let id = alpha (alpha | digit | '_')*
-let string = '"' (ascii* as s) '"'
+let id = (alpha | '_') (alpha | digit | '_')*
+let string_re = '"' (ascii* as s) '"'
 let whitespace = [' ' '\t' '\r']
 (* NEW up to us how to define out nums. Doesn't allow exponential notation *)
-let num = (digit+ '.' digit*) | ('.' digit+)
-let int = digit+
+let num_re = (digit+ '.' digit*) | ('.' digit+)
+let int_re = digit+
 
 rule token = parse
   [' ' '\t' '\r' '\n'] { token lexbuf } (* Whitespace *)
@@ -62,10 +62,10 @@ rule token = parse
 (* Literals *)
 | "true"   { TRUE }
 | "false"  { FALSE }
-| int as lxm { LITERAL(int_of_string lxm) }
-| num as lxm { NUM_LITERAL(float_of_string lxm) }
+| int_re as lxm { LITERAL(int_of_string lxm) }
+| num_re as lxm { NUM_LITERAL(float_of_string lxm) }
 | id as lxm { ID(lxm) }
-| string	{ STRING_LITERAL(s) } (* NEW string literal *)
+| string_re	{ STRING_LITERAL(s) } (* NEW string literal *)
 | eof { EOF }
 | _ as char { raise (Failure("illegal character " ^ Char.escaped char)) }
 
@@ -74,5 +74,5 @@ and multi_comment = parse
 | _    { multi_comment lexbuf }
 
 and single_comment = parse
-  '\n' { token lexbuf }
+  ['\n' '\r'] { token lexbuf }
 | _ {single_comment lexbuf }

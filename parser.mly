@@ -51,7 +51,7 @@ fdecl:
         typ = $7;
         fname = $2;
         formals = $4;
-        locals = $9;
+        locals = List.rev $9;
         body = List.rev $10;
       }
     }
@@ -69,6 +69,7 @@ typ:
   | BOOL { Bool }
   | VOID { Void }
   | STRING { String }
+  | NUM { Num }
 
 vdecl_list:
     /* nothing */    { [] }
