@@ -46,7 +46,7 @@ let translate (globals, functions) =
   and i32_t  = L.i32_type  context
   and num_t = L.double_type context
   and i8_t   = L.i8_type context
-  and str_t = L.pointer_type (L.i8_type context)
+  (*and str_t = L.pointer_type (L.i8_type context)*)
   and i1_t   = L.i1_type   context
   and void_t = L.void_type context in
 
@@ -113,9 +113,9 @@ let translate (globals, functions) =
 
     (* Construct code for an expression; return its value *)
     let rec expr builder = function
-	      A.Literal i -> L.const_int i32_t i 
+	A.Literal i -> L.const_int i32_t i 
       | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
-      | A.StringLit st -> L.const_stringz context st
+      | A.StringLit st -> L.const_stringz context st 
       | A.Noexpr -> L.const_int i32_t 0
       | A.Id s -> L.build_load (lookup s) s builder
       | A.Binop (e1, op, e2) ->
@@ -125,7 +125,7 @@ let translate (globals, functions) =
 	    A.Add     -> L.build_add
 	  | A.Sub     -> L.build_sub
 	  | A.Mult    -> L.build_mul
-    | A.Div     -> L.build_sdiv
+          | A.Div     -> L.build_sdiv
 	  | A.And     -> L.build_and
 	  | A.Or      -> L.build_or
 	  | A.Equal   -> L.build_icmp L.Icmp.Eq
@@ -142,16 +142,9 @@ let translate (globals, functions) =
           | A.Not     -> L.build_not) e' "tmp" builder
       | A.Assign (s, e) -> let e' = expr builder e in
 	                   ignore (L.build_store e' (lookup s) builder); e'
-
-
       | A.Call ("print", [e]) | A.Call ("printb", [e]) ->
-        let get_string = function
-          A.StringLit s -> s
-          | _ -> "" in
-        let s_ptr = L.build_global_stringptr ((get_string e)) ".str" builder in
-      L.build_call printf_func [| s_ptr |] "printf" builder
-
-
+	  L.build_call printf_func [| str_format_str ; (expr builder e) |]
+	    "printf" builder
       | A.Call ("printbig", [e]) ->
 	  L.build_call printbig_func [| (expr builder e) |] "printbig" builder
       | A.Call (f, act) ->

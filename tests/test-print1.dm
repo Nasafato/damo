@@ -1,4 +1,4 @@
 def main() : void
 {
-    print("Hi");
+    print_string("Hello, literal world!");
 }
