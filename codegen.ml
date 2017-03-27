@@ -17,17 +17,44 @@ module A = Ast
 
 module StringMap = Map.Make(String)
 
+(*
+Figuring out printing:
+Std lib function-->
+let printf_ty = var_arg_function_type i32_t [| pointer_type i8_t |] in
+let _ = declare_function "printf" printf_ty the_module
+
+
+so declaring functions:
+get the next function (encoded into llvm) from string map, get function values
+grab basic function builder block, add the function name to context
+then, get pointer to position immediately after function name in
+memory, add formal arguments to function in memory
+
+now int_formet_str should be pointing to the beginning of formal
+args in memorys
+
+build_global_stringptr
+
+*)
+
+
+
+
 let translate (globals, functions) =
   let context = L.global_context () in
   let the_module = L.create_module context "damo"
   and i32_t  = L.i32_type  context
-  and i8_t   = L.i8_type   context
+  and num_t = L.double_type context
+  and i8_t   = L.i8_type context
+  (*and str_t = L.pointer_type (L.i8_type context)*)
   and i1_t   = L.i1_type   context
   and void_t = L.void_type context in
 
   let ltype_of_typ = function
       A.Int -> i32_t
     | A.Bool -> i1_t
+    | A.Num -> num_t
+    (*| A.String -> str_t*)
     | A.Void -> void_t in
 
   (* Declare each global variable; remember its value in a map *)
@@ -86,8 +113,9 @@ let translate (globals, functions) =
 
     (* Construct code for an expression; return its value *)
     let rec expr builder = function
-	A.Literal i -> L.const_int i32_t i
+	A.Literal i -> L.const_int i32_t i 
       | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
+      | A.StringLit st -> L.const_stringz context st 
       | A.Noexpr -> L.const_int i32_t 0
       | A.Id s -> L.build_load (lookup s) s builder
       | A.Binop (e1, op, e2) ->

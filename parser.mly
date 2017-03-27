@@ -13,8 +13,8 @@ open Ast
 %token DEF COLON
 %token <int> LITERAL
 %token <string> STRING_LITERAL
-%token <float> NUM_LITERAL
 %token <string> ID
+%token <float> NUM_LITERAL
 %token EOF
 
 %nonassoc NOELSE

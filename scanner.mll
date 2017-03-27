@@ -9,7 +9,6 @@ let digit = ['0'-'9']
 let id = (alpha | '_') (alpha | digit | '_')*
 let string_re = '"' (ascii* as s) '"'
 let whitespace = [' ' '\t' '\r']
-(* NEW up to us how to define out nums. Doesn't allow exponential notation *)
 let num_re = (digit+ '.' digit*) | ('.' digit+)
 let int_re = digit+
 
@@ -64,8 +63,10 @@ rule token = parse
 | "false"  { FALSE }
 | int_re as lxm { LITERAL(int_of_string lxm) }
 | num_re as lxm { NUM_LITERAL(float_of_string lxm) }
-| id as lxm { ID(lxm) }
 | string_re	{ STRING_LITERAL(s) } (* NEW string literal *)
+
+(* Others *)
+| id as lxm { ID(lxm) }
 | eof { EOF }
 | _ as char { raise (Failure("illegal character " ^ Char.escaped char)) }
 
