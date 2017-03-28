@@ -1,6 +1,7 @@
 def main() : int
 {
-    string test_string = "Hello, world!";
-    print_string(test_string);
+    string test;
+    test = "Hello, world!";
+    print_string(test);
     return 0;
 }

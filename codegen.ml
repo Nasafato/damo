@@ -46,7 +46,7 @@ let translate (globals, functions) =
   and i32_t  = L.i32_type  context
   and num_t = L.double_type context
   and i8_t   = L.i8_type context
-  (*and str_t = L.pointer_type (L.i8_type context)*)
+  and str_t = L.pointer_type (L.i8_type context)
   and i1_t   = L.i1_type   context
   and void_t = L.void_type context in
 
@@ -54,7 +54,7 @@ let translate (globals, functions) =
       A.Int -> i32_t
     | A.Bool -> i1_t
     | A.Num -> num_t
-    (*| A.String -> str_t*)
+    | A.String -> str_t
     | A.Void -> void_t in
 
   (* Declare each global variable; remember its value in a map *)
@@ -87,7 +87,9 @@ let translate (globals, functions) =
     let (the_function, _) = StringMap.find fdecl.A.fname function_decls in
     let builder = L.builder_at_end context (L.entry_block the_function) in
 
+    (* NEW formatting string for using printf on strings *)
     let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in
+    let str_format_str = L.build_global_stringptr "%s\n" "fmtstr" builder in
     
     (* Construct the function's "locals": formal arguments and locally
        declared variables.  Allocate each on the stack, initialize their
@@ -115,7 +117,8 @@ let translate (globals, functions) =
     let rec expr builder = function
 	A.Literal i -> L.const_int i32_t i 
       | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
-      | A.StringLit st -> L.const_stringz context st 
+      (* NEW for creating strings from expressions *)
+      | A.StringLit st -> L.build_global_stringptr st "tmp" builder 
       | A.Noexpr -> L.const_int i32_t 0
       | A.Id s -> L.build_load (lookup s) s builder
       | A.Binop (e1, op, e2) ->
@@ -145,6 +148,10 @@ let translate (globals, functions) =
       | A.Call ("print", [e]) | A.Call ("printb", [e]) ->
 	  L.build_call printf_func [| int_format_str ; (expr builder e) |]
 	    "printf" builder
+      (* NEW call printf when print_string is called *)
+      | A.Call ("print_string", [e]) ->
+    L.build_call printf_func [| str_format_str ; (expr builder e) |]
+      "printf" builder
       | A.Call ("printbig", [e]) ->
 	  L.build_call printbig_func [| (expr builder e) |] "printbig" builder
       | A.Call (f, act) ->
