@@ -90,6 +90,7 @@ let translate (globals, functions) =
     (* NEW formatting string for using printf on strings *)
     let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in
     let str_format_str = L.build_global_stringptr "%s\n" "fmtstr" builder in
+    let float_format_str = L.build_global_stringptr "%f\n" "fmtstr" builder in
     
     (* Construct the function's "locals": formal arguments and locally
        declared variables.  Allocate each on the stack, initialize their
@@ -119,6 +120,7 @@ let translate (globals, functions) =
       | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
       (* NEW for creating strings from expressions *)
       | A.StringLit st -> L.build_global_stringptr st "tmp" builder 
+      | A.NumLit num -> L.const_float num_t num
       | A.Noexpr -> L.const_int i32_t 0
       | A.Id s -> L.build_load (lookup s) s builder
       | A.Binop (e1, op, e2) ->
@@ -148,6 +150,9 @@ let translate (globals, functions) =
       | A.Call ("print", [e]) | A.Call ("printb", [e]) ->
 	  L.build_call printf_func [| int_format_str ; (expr builder e) |]
 	    "printf" builder
+      | A.Call ("print_num", [e]) ->
+    L.build_call printf_func [| float_format_str ; (expr builder e) |]
+      "printf" builder
       (* NEW call printf when print_string is called *)
       | A.Call ("print_string", [e]) ->
     L.build_call printf_func [| str_format_str ; (expr builder e) |]

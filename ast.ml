@@ -70,6 +70,7 @@ let rec string_of_expr = function
     Literal(l) -> string_of_int l
   | BoolLit(true) -> "true"
   | BoolLit(false) -> "false"
+  | NumLit(n) -> string_of_float n
   | StringLit(s) -> "\"" ^ s ^ "\""
   | Id(s) -> s
   | Binop(e1, o, e2) ->
