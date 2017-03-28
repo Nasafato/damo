@@ -7,7 +7,7 @@
 all : damo.native printbig.o
 
 damo.native :
-	ocamlbuild -use-ocamlfind -pkgs llvm,llvm.analysis -cflags -w,+a-4 \
+	ocamlbuild -use-ocamlfind -pkgs llvm,llvm.analysis,str -cflags -w,+a-4 \
 		damo.native
 
 # "make clean" removes all generated files
