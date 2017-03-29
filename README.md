@@ -10,3 +10,10 @@ Compilation process, given source code:
     - Involves `damo.ml`
 5. (bunch of stuff) that turns it into an executable
     - Linking everything in the `Makefile`
+
+TO DO LIST MARCH 29th 4:00pm:
+
+1) in-line initialization
+2) clean up ocaml warnings
+
+

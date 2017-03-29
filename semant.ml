@@ -30,8 +30,6 @@ let check (globals, functions) =
      the given lvalue type *)
   let check_assign lvaluet rvaluet err =
      if lvaluet == rvaluet then lvaluet 
-     else if lvaluet = Num  && rvaluet = Int then Num 
-     else if lvaluet = Int  && rvaluet = Num then Num
      else raise err
   in
    
@@ -50,12 +48,12 @@ let check (globals, functions) =
     (List.map (fun fd -> fd.fname) functions);
 
   (* Function declaration for a named function *)
-  let built_in_decls = StringMap.add "print_string"
-     { typ = Void; fname = "print_string"; formals = [(String, "x")];
+  let built_in_decls = StringMap.add "print"
+     { typ = Void; fname = "print"; formals = [(String, "x")];
       locals = []; body = [] } (StringMap.add "print_num"
      { typ = Void; fname = "print_num"; formals = [(Num, "x")];
-       locals = []; body = [] } (StringMap.add "print"
-     { typ = Void; fname = "print"; formals = [(Int, "x")];
+       locals = []; body = [] } (StringMap.add "print_int"
+     { typ = Void; fname = "print_int"; formals = [(Int, "x")];
        locals = []; body = [] } (StringMap.add "printb"
      { typ = Void; fname = "printb"; formals = [(Bool, "x")];
        locals = []; body = [] } (StringMap.singleton "printbig"
@@ -110,10 +108,6 @@ let check (globals, functions) =
             |Add | Sub | Mult | Div when (t1 = Num && t2 = Int) ->  Num
             |Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
             |Add | Sub | Mult | Div when t1 = Num && t2 = Num -> Num
-            (*
-            |Add | Sub | Mult | Div when t1 = Num && t2 = Int -> Num
-            |Add | Sub | Mult | Div when t1 = Int && t2 = Num -> Num
-            *)
             (* NEW we don't allow string equality, yet *)
           	| Equal | Neq when t1 = t2 && t1 <> String -> Bool
           	| Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool

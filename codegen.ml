@@ -61,7 +61,7 @@ let translate (globals, functions) =
   let global_vars =
     let global_var m (t, n) =
       let init = L.const_int (ltype_of_typ t) 0
-      in StringMap.add n (L.define_global n init the_module) m in
+      in StringMap.add n ((L.define_global n init the_module),t) m in
     List.fold_left global_var StringMap.empty globals in
 
   (* Declare printf(), which the print built-in function will call *)
@@ -99,11 +99,11 @@ let translate (globals, functions) =
       let add_formal m (t, n) p = L.set_value_name n p;
 	let local = L.build_alloca (ltype_of_typ t) n builder in
 	ignore (L.build_store p local builder);
-	StringMap.add n local m in
+	StringMap.add n (local, t) m in
 
       let add_local m (t, n) =
 	let local_var = L.build_alloca (ltype_of_typ t) n builder
-	in StringMap.add n local_var m in
+	in StringMap.add n (local_var, t) m in
 
       let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
           (Array.to_list (L.params the_function)) in
@@ -122,7 +122,7 @@ let translate (globals, functions) =
       | A.StringLit st -> L.build_global_stringptr st "tmp" builder 
       | A.NumLit num -> L.const_float num_t num
       | A.Noexpr -> L.const_int i32_t 0
-      | A.Id s -> L.build_load (lookup s) s builder
+      | A.Id s -> let (s_v,_) = lookup s in L.build_load s_v s builder
       | A.Binop (e1, op, e2) ->
   	  
       let e1' = expr builder e1
@@ -130,12 +130,19 @@ let translate (globals, functions) =
         
         let bop_int_with_num (e1, e2) =
           (match e1, e2 with
-          | A.Literal i , A.NumLit n -> (expr builder (A.NumLit (float_of_int (i))), e2')
-          | A.NumLit n, A.Literal i -> (e1', expr builder (A.NumLit (float_of_int (i)) ))
-          | A.Literal i, A.NumLit n -> (expr builder (A.NumLit (float_of_int (i)) ), e2')
-          | A.NumLit(n), A.NumLit( i) -> e1', e2'
-          | A.Id(n), A.Id(i) -> (L.build_sitofp e1' num_t "cast" builder), (L.build_sitofp e2' num_t "cast" builder)
-          | _, _ -> ignore(print_string "something else"); e1', e2'
+          | A.Literal i , A.NumLit n -> ignore(print_string "SHIT"); ignore(n); (expr builder (A.NumLit (float_of_int (i))), e2')
+          | A.NumLit n, A.Literal i -> ignore(n); (e1', expr builder (A.NumLit (float_of_int (i)) ))
+          | A.Id(n), A.Id(i) -> let s_v1, t1 = lookup n in 
+                                let s_v2, t2 = lookup i in
+                                  (*if (t1 = t2) && (t1 = A.Int) then e1', e2'
+                                  else if (t1 = t2) && (t1 = A.Num) then e1', e2'*)
+                                  if (t1 = A.Num) && (t2 = A.Int) then
+                                    e1', (L.build_sitofp e2' num_t "cast" builder)
+                                  else if (t1 = A.Int) && (t2 = A.Num) then
+                                    (L.build_sitofp e1' num_t "cast" builder), e2'
+                                  else
+                                    e1', e2'
+          | _, _ -> e1', e2'
         ) in
           (* if we have int+num, cast int into a float and continue*)
           let (e1', e2') = bop_int_with_num (e1, e2)
@@ -199,10 +206,11 @@ let translate (globals, functions) =
 
         let build_ops_with_types typ1 typ2 = 
           match (typ1, typ2) with
-            "int", "int" -> int_bop op
+              "int", "int" -> int_bop op
             | "num", "num" -> num_bop op
             | "num", "int" -> num_bop op
             | "int", "num" -> num_bop op
+            | _,_ -> ignore( print_string "Put execption here"); num_bop op
           in
         build_ops_with_types e1'_type e2'_type
         (* end building bin_ops*)
@@ -212,16 +220,16 @@ let translate (globals, functions) =
 	  (match op with
 	    A.Neg     -> L.build_neg
           | A.Not     -> L.build_not) e' "tmp" builder
-      | A.Assign (s, e) -> let e' = expr builder e in
-	                   ignore (L.build_store e' (lookup s) builder); e'
-      | A.Call ("print", [e]) | A.Call ("printb", [e]) ->
+      | A.Assign (s, e) -> let e' = expr builder e in ignore( let (s_v, _) = (lookup s) in
+	                   L.build_store e' s_v builder); e'
+      | A.Call ("print_int", [e]) | A.Call ("printb", [e]) ->
 	  L.build_call printf_func [| int_format_str ; (expr builder e) |]
 	    "printf" builder
       | A.Call ("print_num", [e]) ->
     L.build_call printf_func [| float_format_str ; (expr builder e) |]
       "printf" builder
       (* NEW call printf when print_string is called *)
-      | A.Call ("print_string", [e]) ->
+      | A.Call ("print", [e]) ->
     L.build_call printf_func [| str_format_str ; (expr builder e) |]
       "printf" builder
       | A.Call ("printbig", [e]) ->

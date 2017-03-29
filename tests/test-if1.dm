@@ -2,7 +2,7 @@
 def main() : int
 {
   //This is another one
-  if (true) print(42);
-  print(17);
+  if (true) print_int(42);
+  print_int(17);
   return 0;
 }
