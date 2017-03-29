@@ -124,8 +124,23 @@ let translate (globals, functions) =
       | A.Noexpr -> L.const_int i32_t 0
       | A.Id s -> L.build_load (lookup s) s builder
       | A.Binop (e1, op, e2) ->
-  	  let e1' = expr builder e1
+  	  
+      let e1' = expr builder e1
   	  and e2' = expr builder e2 in
+        
+        let bop_int_with_num (e1, e2) =
+          (match e1, e2 with
+          | A.Literal i , A.NumLit n -> (expr builder (A.NumLit (float_of_int (i))), e2')
+          | A.NumLit n, A.Literal i -> (e1', expr builder (A.NumLit (float_of_int (i)) ))
+          | A.Literal i, A.NumLit n -> (expr builder (A.NumLit (float_of_int (i)) ), e2')
+          | A.NumLit(n), A.NumLit( i) -> e1', e2'
+          | A.Id(n), A.Id(i) -> (L.build_sitofp e1' num_t "cast" builder), (L.build_sitofp e2' num_t "cast" builder)
+          | _, _ -> ignore(print_string "something else"); e1', e2'
+        ) in
+          (* if we have int+num, cast int into a float and continue*)
+          let (e1', e2') = bop_int_with_num (e1, e2)
+        
+        in
         let int_bop op = 
           (match op with
                     A.Add     -> L.build_add
@@ -186,11 +201,13 @@ let translate (globals, functions) =
           match (typ1, typ2) with
             "int", "int" -> int_bop op
             | "num", "num" -> num_bop op
+            | "num", "int" -> num_bop op
+            | "int", "num" -> num_bop op
           in
         build_ops_with_types e1'_type e2'_type
         (* end building bin_ops*)
 
-      | A.Unop(op, e) ->
+    | A.Unop(op, e) ->
 	  let e' = expr builder e in
 	  (match op with
 	    A.Neg     -> L.build_neg

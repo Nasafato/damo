@@ -29,7 +29,10 @@ let check (globals, functions) =
   (* Raise an exception of the given rvalue type cannot be assigned to
      the given lvalue type *)
   let check_assign lvaluet rvaluet err =
-     if lvaluet == rvaluet then lvaluet else raise err
+     if lvaluet == rvaluet then lvaluet 
+     else if lvaluet = Num  && rvaluet = Int then Num 
+     else if lvaluet = Int  && rvaluet = Num then Num
+     else raise err
   in
    
   (**** Checking Global Variables ****)
@@ -93,7 +96,6 @@ let check (globals, functions) =
       try StringMap.find s symbols
       with Not_found -> raise (Failure ("undeclared identifier " ^ s))
     in
-
     (* Return the type of an expression or throw an exception *)
     let rec expr = function
 	     Literal _ -> Int
@@ -104,8 +106,14 @@ let check (globals, functions) =
       | Id s -> type_of_identifier s
       | Binop(e1, op, e2) as e -> let t1 = expr e1 and t2 = expr e2 in
       	(match op with
-            Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
+            Add | Sub | Mult | Div when (t1 = Int && t2 = Num )-> Num
+            |Add | Sub | Mult | Div when (t1 = Num && t2 = Int) ->  Num
+            |Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
             |Add | Sub | Mult | Div when t1 = Num && t2 = Num -> Num
+            (*
+            |Add | Sub | Mult | Div when t1 = Num && t2 = Int -> Num
+            |Add | Sub | Mult | Div when t1 = Int && t2 = Num -> Num
+            *)
             (* NEW we don't allow string equality, yet *)
           	| Equal | Neq when t1 = t2 && t1 <> String -> Bool
           	| Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
