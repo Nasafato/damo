@@ -83,3 +83,6 @@ TARFILES = ast.ml codegen.ml Makefile damo.ml parser.mly README scanner.mll \
 damo-llvm.tar.gz : $(TARFILES)
 	cd .. && tar czf damo-llvm/damo-llvm.tar.gz \
 		$(TARFILES:%=damo-llvm/%)
+
+test-int:
+	cp _build/damo.native tests/damo.native

@@ -1,4 +1,4 @@
-def main() : int {
+def test() : int {
 	// Variable declarations come first
 	num i;
 	num j;
@@ -10,3 +10,5 @@ def main() : int {
 	print_num(j);
 	return 0;
 }
+
+test();

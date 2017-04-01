@@ -40,7 +40,7 @@ build_global_stringptr
 
 
 
-let translate (globals, functions) =
+let translate (topstmts, functions) =
   let context = L.global_context () in
   let the_module = L.create_module context "damo"
   and i32_t  = L.i32_type  context
@@ -58,11 +58,47 @@ let translate (globals, functions) =
     | A.Void -> void_t in
 
   (* Declare each global variable; remember its value in a map *)
+  (*
   let global_vars =
     let global_var m (t, n) =
       let init = L.const_int (ltype_of_typ t) 0
       in StringMap.add n ((L.define_global n init the_module),t) m in
     List.fold_left global_var StringMap.empty globals in
+    *)
+  let global_vars = StringMap.empty in
+
+  let filtered_main_binds = 
+    topstmts
+    |> List.filter (function
+      | A.Bind _ -> true
+      | _ -> false
+    ) in
+  let main_binds = 
+    filtered_main_binds
+    |> List.map (function | A.Bind b -> b) in
+
+  let filtered_main_stmts =
+    topstmts
+    |> List.filter (function
+      | A.Bind _ -> false
+      | _ -> true
+    ) 
+    |> List.rev
+    in
+  
+  let main_function = {
+    A.typ = A.Int;
+    A.fname = "main";
+    A.formals = [];
+    A.locals = main_binds;
+    A.body = filtered_main_stmts;
+  } in
+
+(*
+  let _ = Printf.printf "%s" (String.concat "\n" (List.map A.string_of_stmt main_function.A.body)) in
+  *)
+
+  let functions = main_function :: functions in
 
   (* Declare printf(), which the print built-in function will call *)
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
@@ -88,9 +124,9 @@ let translate (globals, functions) =
     let builder = L.builder_at_end context (L.entry_block the_function) in
 
     (* NEW formatting string for using printf on strings *)
-    let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in
+    let int_format_str = L.build_global_stringptr "%d\n" "fmtint" builder in
     let str_format_str = L.build_global_stringptr "%s\n" "fmtstr" builder in
-    let float_format_str = L.build_global_stringptr "%f\n" "fmtstr" builder in
+    let float_format_str = L.build_global_stringptr "%f\n" "floatstr" builder in
 
     (* Construct the function's "locals": formal arguments and locally
        declared variables.  Allocate each on the stack, initialize their
@@ -130,18 +166,36 @@ let translate (globals, functions) =
 
         let bop_int_with_num (e1, e2) =
           (match e1, e2 with
-           | A.Literal i , A.NumLit n -> ignore(print_string "SHIT"); ignore(n); (expr builder (A.NumLit (float_of_int (i))), e2')
-           | A.NumLit n, A.Literal i -> ignore(n); (e1', expr builder (A.NumLit (float_of_int (i)) ))
-           | A.Id(n), A.Id(i) -> let s_v1, t1 = lookup n in 
-             let s_v2, t2 = lookup i in
-             (*if (t1 = t2) && (t1 = A.Int) then e1', e2'
-               else if (t1 = t2) && (t1 = A.Num) then e1', e2'*)
-             if (t1 = A.Num) && (t2 = A.Int) then
+           | A.Literal i , A.NumLit n -> (expr builder (A.NumLit (float_of_int (i))), e2')
+           | A.NumLit n, A.Literal i -> (e1', expr builder (A.NumLit (float_of_int (i)) ))
+           | A.Id(n), A.Id(i) -> let _, t1 = lookup n in 
+             let _, t2 = lookup i in
+             if (t1 = A.Num) && (t2 = A.Int) then 
                e1', (L.build_sitofp e2' num_t "cast" builder)
-             else if (t1 = A.Int) && (t2 = A.Num) then
+             else if (t1 = A.Int) && (t2 = A.Num) then 
                (L.build_sitofp e1' num_t "cast" builder), e2'
              else
                e1', e2'
+           | A.Id(n), A.Literal(i) -> let _, t1 = lookup n in 
+              if t1 = A.Num then 
+                e1', (L.build_sitofp e2' num_t "cast" builder)
+              else
+                e1', e2'
+           | A.Literal(i), A.Id(n) -> let _, t1 = lookup n in 
+              if t1 = A.Num then 
+                (L.build_sitofp e1' num_t "cast" builder), e2'
+              else
+                e1', e2'
+            | A.Id(i), A.NumLit(n) -> let _, t1 = lookup i in 
+              if t1 = A.Int then 
+                (L.build_sitofp e1' num_t "cast" builder), e2'
+              else
+                e1', e2'
+            | A.NumLit(i), A.Id(n) -> let _, t1 = lookup n in 
+              if t1 = A.Int then 
+                e1', (L.build_sitofp e2' num_t "cast" builder)
+              else
+                e1', e2'
            | _, _ -> e1', e2'
           ) in
         (* if we have int+num, cast int into a float and continue*)
@@ -222,7 +276,7 @@ let translate (globals, functions) =
          | A.Not     -> L.build_not) e' "tmp" builder
       | A.Assign (s, e) -> let e' = expr builder e in ignore( let (s_v, _) = (lookup s) in
                                                               L.build_store e' s_v builder); e'
-      | A.Call ("print_int", [e]) | A.Call ("printb", [e]) ->
+      | A.Call ("print_int", [e]) | A.Call ("print_bool", [e]) ->
         L.build_call printf_func [| int_format_str ; (expr builder e) |]
           "printf" builder
       | A.Call ("print_num", [e]) ->

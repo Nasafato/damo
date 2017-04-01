@@ -42,7 +42,7 @@ program:
 
 decls:
    /* nothing */ { [], [] }
- | decls vdecl { ($2 :: fst $1), snd $1 }
+ | decls stmt { ($2 :: fst $1), snd $1 }
  | decls fdecl { fst $1, ($2 :: snd $1) }
 
 fdecl:
@@ -77,7 +77,7 @@ vdecl_list:
   | vdecl_list vdecl { $2 :: $1 }
 
 vdecl:
-   typ ID SEMI { ($1, $2) }
+    typ ID SEMI { ($1, $2) }
 
 stmt_list:
     /* nothing */  { [] }
@@ -92,6 +92,7 @@ stmt:
   | IF LPAREN expr RPAREN stmt else_stmt { If($3, $5, $6) }
   | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt { For($3, $5, $7, $9) }
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
+  | vdecl { Bind $1 }
 
 else_stmt:
   ELSEIF LPAREN expr RPAREN stmt else_stmt { If($3, $5, $6) }
