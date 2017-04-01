@@ -52,9 +52,10 @@ let check (topstmts, functions) =
   (**** Checking Functions ****)
 
   (* NEW list of all built in functions *)
+  let reserved = ["main"] in
   let printing_functions = ["print" ; "print_int" ; "print_num" ; "print_bool"] in
   let symbol_functions = ["left" ; "right" ; "operation" ; "value" ] in
-  let built_in_functions = printing_functions @ symbol_functions in
+  let built_in_functions = reserved @ printing_functions @ symbol_functions in
   
   (* NEW create list of functions *)
   let function_list = List.map (fun fd -> fd.fname) functions in
@@ -98,16 +99,6 @@ let check (topstmts, functions) =
   let function_decl s = try StringMap.find s function_decls
     with Not_found -> raise (Failure ("unrecognized function " ^ s))
   in
-
-  (* TODO there must be a better way to do this
-  let _ = try StringMap.find "main" function_decls; true
-    with Not_found -> false
-  in
-
-  if main_found = true then raise (Failure ("main() is a reserved name")); *)
-
-  ignore (if StringMap.mem "main" function_decls then raise (Failure ("main() is a reserved function name"))
-    else ());
 
   let check_function func =
 
