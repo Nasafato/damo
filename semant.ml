@@ -9,7 +9,8 @@ module StringMap = Map.Make(String)
 
    Check each global variable, then check each function *)
 
-let check (globals, functions) =
+let check (topstmts, functions) =
+  let globals = [] in
 
   (* Raise an exception if the given list has a duplicate *)
   let report_duplicate exceptf list =
@@ -35,9 +36,18 @@ let check (globals, functions) =
    
   (**** Checking Global Variables ****)
 
+  (* 
+    We need to implement scoping now, since toplevel variable assignments
+    and declarations can occur in an arbitrary order. It's up to semantic
+    checking to see whether variable reads and function calls are allowed
+    in scope.
+   *)
+
+  (*
   List.iter (check_not_void (fun n -> "illegal void global " ^ n)) globals;
    
   report_duplicate (fun n -> "duplicate global " ^ n) (List.map snd globals);
+  *)
 
   (**** Checking Functions ****)
 
