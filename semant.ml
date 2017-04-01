@@ -62,8 +62,8 @@ let check (globals, functions) =
      { typ = Void; fname = "print_num"; formals = [(Num, "x")];
        locals = []; body = [] } (StringMap.add "print_int"
      { typ = Void; fname = "print_int"; formals = [(Int, "x")];
-       locals = []; body = [] } (StringMap.add "printb"
-     { typ = Void; fname = "printb"; formals = [(Bool, "x")];
+       locals = []; body = [] } (StringMap.add "print_bool"
+     { typ = Void; fname = "print_bool"; formals = [(Bool, "x")];
        locals = []; body = [] } (StringMap.singleton "printbig"
      { typ = Void; fname = "printbig"; formals = [(Int, "x")];
        locals = []; body = [] }))))
