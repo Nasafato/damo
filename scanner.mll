@@ -1,6 +1,8 @@
 (* Ocamllex scanner for MicroC *)
 
-{ open Parser }
+{ open Parser 
+
+}
 
 (* Complex regular expressions *)
 let alpha = ['a'-'z' 'A'-'Z']

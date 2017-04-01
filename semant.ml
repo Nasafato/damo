@@ -73,7 +73,8 @@ let check (topstmts, functions) =
         locals = []; body = [] }
     |> StringMap.add "print"
       { typ = Void; fname = "print"; formals = [(String, "x")];
-        locals = []; body = [] } in
+        locals = []; body = [] } 
+  in
 
   let function_decls = List.fold_left (fun m fd -> StringMap.add fd.fname fd m)
       built_in_decls functions
