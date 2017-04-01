@@ -19,6 +19,7 @@ open Ast
 
 %nonassoc NOELSE
 %nonassoc ELSE
+%nonassoc ELSEIF
 %right ASSIGN
 %left OR
 %left AND
@@ -88,10 +89,13 @@ stmt:
   | RETURN expr SEMI { Return $2 }
   | LBRACE stmt_list RBRACE { Block(List.rev $2) }
   | IF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5, Block([])) }
-  | IF LPAREN expr RPAREN stmt ELSE stmt    { If($3, $5, $7) }
-  | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
-     { For($3, $5, $7, $9) }
+  | IF LPAREN expr RPAREN stmt else_stmt { If($3, $5, $6) }
+  | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt { For($3, $5, $7, $9) }
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
+
+else_stmt:
+  ELSEIF LPAREN expr RPAREN stmt else_stmt { If($3, $5, $6) }
+  | ELSE stmt { $2 }
 
 expr_opt:
     /* nothing */ { Noexpr }

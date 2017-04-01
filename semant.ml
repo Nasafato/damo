@@ -50,8 +50,8 @@ let check (globals, functions) =
   let function_list = List.map (fun fd -> fd.fname) functions in
 
   (* NEW check for prior existence of built in functions *)
-  List.map (fun name -> if List.mem name function_list
-    then raise (Failure ("function " ^ name ^ " may not be defined")) else ()) built_in_functions;
+  ignore (List.map (fun name -> if List.mem name function_list
+    then raise (Failure ("function " ^ name ^ " may not be defined")) else ()) built_in_functions);
 
   report_duplicate (fun n -> "duplicate function " ^ n) function_list;
 
