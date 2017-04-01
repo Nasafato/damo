@@ -40,7 +40,7 @@ build_global_stringptr
 
 
 
-let translate (globals, functions) =
+let translate (topstmts, functions) =
   let context = L.global_context () in
   let the_module = L.create_module context "damo"
   and i32_t  = L.i32_type  context
@@ -58,11 +58,47 @@ let translate (globals, functions) =
     | A.Void -> void_t in
 
   (* Declare each global variable; remember its value in a map *)
+  (*
   let global_vars =
     let global_var m (t, n) =
       let init = L.const_int (ltype_of_typ t) 0
       in StringMap.add n ((L.define_global n init the_module),t) m in
     List.fold_left global_var StringMap.empty globals in
+    *)
+  let global_vars = StringMap.empty in
+
+  let filtered_main_binds = 
+    topstmts
+    |> List.filter (function
+      | A.Bind _ -> true
+      | _ -> false
+    ) in
+  let main_binds = 
+    filtered_main_binds
+    |> List.map (function | A.Bind b -> b) in
+
+  let filtered_main_stmts =
+    topstmts
+    |> List.filter (function
+      | A.Bind _ -> false
+      | _ -> true
+    ) 
+    |> List.rev
+    in
+  
+  let main_function = {
+    A.typ = A.Int;
+    A.fname = "main";
+    A.formals = [];
+    A.locals = main_binds;
+    A.body = filtered_main_stmts;
+  } in
+
+(*
+  let _ = Printf.printf "%s" (String.concat "\n" (List.map A.string_of_stmt main_function.A.body)) in
+  *)
+
+  let functions = main_function :: functions in
 
   (* Declare printf(), which the print built-in function will call *)
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
