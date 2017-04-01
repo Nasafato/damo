@@ -57,6 +57,7 @@ rule token = parse
 | "void"   { VOID }
 | "string"	{ STRING } (* NEW *)
 | "num"		{ NUM } (* NEW *)
+| "symbol"	{ SYMBOL } (* NEW *)
 
 (* Literals *)
 | "true"   { TRUE }

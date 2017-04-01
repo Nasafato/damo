@@ -41,11 +41,19 @@ let check (globals, functions) =
 
   (**** Checking Functions ****)
 
-  if List.mem "print" (List.map (fun fd -> fd.fname) functions)
-  then raise (Failure ("function print may not be defined")) else ();
+  (* NEW list of all built in functions *)
+  let printing_functions = ["print" ; "print_int" ; "print_num" ; "print_bool"] in
+  let symbol_functions = ["left" ; "right" ; "operation" ; "value" ] in
+  let built_in_functions = printing_functions @ symbol_functions in
+  
+  (* NEW create list of functions *)
+  let function_list = List.map (fun fd -> fd.fname) functions in
 
-  report_duplicate (fun n -> "duplicate function " ^ n)
-    (List.map (fun fd -> fd.fname) functions);
+  (* NEW check for prior existence of built in functions *)
+  List.map (fun name -> if List.mem name function_list
+    then raise (Failure ("function " ^ name ^ " may not be defined")) else ()) built_in_functions;
+
+  report_duplicate (fun n -> "duplicate function " ^ n) function_list;
 
   (* Function declaration for a named function *)
   let built_in_decls = StringMap.add "print"
@@ -59,6 +67,18 @@ let check (globals, functions) =
        locals = []; body = [] } (StringMap.singleton "printbig"
      { typ = Void; fname = "printbig"; formals = [(Int, "x")];
        locals = []; body = [] }))))
+   in
+
+  (* NEW additionally, add functions related to symbols *)
+  let built_in_decls = StringMap.add "value"
+     { typ = Void; fname = "value"; formals = [(Symbol, "x")];
+      locals = []; body = [] } (StringMap.add "operation"
+     { typ = Void; fname = "operation"; formals = [(Symbol, "x")];
+      locals = []; body = [] } (StringMap.add "right"
+     { typ = Void; fname = "right"; formals = [(Symbol, "x")];
+      locals = []; body = [] } (StringMap.add "left"
+     { typ = Void; fname = "left"; formals = [(Symbol, "x")];
+      locals = []; body = [] } built_in_decls)))
    in
      
   let function_decls = List.fold_left (fun m fd -> StringMap.add fd.fname fd m)
@@ -105,11 +125,14 @@ let check (globals, functions) =
       | Binop(e1, op, e2) as e -> let t1 = expr e1 and t2 = expr e2 in
       	(match op with
             Add | Sub | Mult | Div when (t1 = Int && t2 = Num )-> Num
-            |Add | Sub | Mult | Div when (t1 = Num && t2 = Int) ->  Num
-            |Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
-            |Add | Sub | Mult | Div when t1 = Num && t2 = Num -> Num
-            (* NEW we don't allow string equality, yet *)
-          	| Equal | Neq when t1 = t2 && t1 <> String -> Bool
+            | Add | Sub | Mult | Div when (t1 = Num && t2 = Int) ->  Num
+            | Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
+            | Add | Sub | Mult | Div when t1 = Num && t2 = Num -> Num
+            (* NEW allow symbols to be operated on with nums *)
+            | Add | Sub | Mult | Div when t1 = Symbol && t2 = Num -> Symbol
+            | Add | Sub | Mult | Div when t1 = Num && t2 = Symbol -> Symbol
+            (* NEW only allow for comparison of ints and nums *)
+          	| Equal | Neq when t1 = t2 && (t1 = Int || t1 = Num) -> Bool
           	| Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
           	| And | Or when t1 = Bool && t2 = Bool -> Bool
                   | _ -> raise (Failure ("illegal binary operator " ^
