@@ -47,6 +47,7 @@ rule token = parse
 | "def"		{ DEF } (* NEW for our function syntax *)
 | "if"     { IF }
 | "else"   { ELSE }
+| "elseif"	{ ELSEIF } (* NEW elseif *)
 | "for"    { FOR }
 | "while"  { WHILE }
 | "return" { RETURN }
