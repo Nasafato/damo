@@ -3,6 +3,7 @@
  */
 
 #include <stdio.h>
+#include <math.h>
 
 /*
  * Font information: one byte per row, 8 rows per character

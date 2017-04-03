@@ -132,14 +132,15 @@ let check (topstmts, functions) =
       | StringLit _ -> String
       | Id s -> type_of_identifier s
       | Binop(e1, op, e2) as e -> let t1 = expr e1 and t2 = expr e2 in
+
       	(match op with
-            Add | Sub | Mult | Div when (t1 = Int && t2 = Num )-> Num
-            | Add | Sub | Mult | Div when (t1 = Num && t2 = Int) ->  Num
-            | Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
-            | Add | Sub | Mult | Div when t1 = Num && t2 = Num -> Num
+              Add | Sub | Mult | Div | Mod | Exp | Log when (t1 = Int && t2 = Num )-> Num
+            | Add | Sub | Mult | Div | Mod | Exp | Log when (t1 = Num && t2 = Int) ->  Num
+            | Add | Sub | Mult | Div | Mod | Exp | Log when t1 = Int && t2 = Int -> Int
+            | Add | Sub | Mult | Div | Mod | Exp | Log when t1 = Num && t2 = Num -> Num
             (* NEW allow symbols to be operated on with nums *)
-            | Add | Sub | Mult | Div when t1 = Symbol && t2 = Num -> Symbol
-            | Add | Sub | Mult | Div when t1 = Num && t2 = Symbol -> Symbol
+            | Add | Sub | Mult | Div  when t1 = Symbol && t2 = Num -> Symbol
+            | Add | Sub | Mult | Div  when t1 = Num && t2 = Symbol -> Symbol
             (* NEW only allow for comparison of ints and nums *)
           	| Equal | Neq when t1 = t2 && (t1 = Int || t1 = Num) -> Bool
           	| Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
@@ -147,6 +148,7 @@ let check (topstmts, functions) =
                   | _ -> raise (Failure ("illegal binary operator " ^
                         string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
                         string_of_typ t2 ^ " in " ^ string_of_expr e))
+
         )
       | Unop(op, e) as ex -> let t = expr e in
         (match op with
