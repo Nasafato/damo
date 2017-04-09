@@ -16,31 +16,11 @@ module L = Llvm
 module A = Ast
 
 module StringMap = Map.Make(String)
-
-(*
-Figuring out printing:
-Std lib function-->
-let printf_ty = var_arg_function_type i32_t [| pointer_type i8_t |] in
-let _ = declare_function "printf" printf_ty the_module
+exception NotImplemented
+exception IllegalType
 
 
-so declaring functions:
-get the next function (encoded into llvm) from string map, get function values
-grab basic function builder block, add the function name to context
-then, get pointer to position immediately after function name in
-memory, add formal arguments to function in memory
-
-now int_formet_str should be pointing to the beginning of formal
-args in memorys
-
-build_global_stringptr
-
-*)
-
-
-
-
-let translate (globals, functions) =
+let translate (topstmts, functions) =
   let context = L.global_context () in
   let the_module = L.create_module context "damo"
   and i32_t  = L.i32_type  context
@@ -48,26 +28,62 @@ let translate (globals, functions) =
   and i8_t   = L.i8_type context
   and str_t = L.pointer_type (L.i8_type context)
   and i1_t   = L.i1_type   context
-  and void_t = L.void_type context in
+  and void_t = L.void_type context 
+  and symbol_t = L.pointer_type (L.i8_type context) in
 
   let ltype_of_typ = function
       A.Int -> i32_t
     | A.Bool -> i1_t
     | A.Num -> num_t
     | A.String -> str_t
+    | A.Symbol -> symbol_t
     | A.Void -> void_t in
 
+
   (* Declare each global variable; remember its value in a map *)
-  let global_vars =
-    let global_var m (t, n) =
-      let init = L.const_int (ltype_of_typ t) 0
-      in StringMap.add n ((L.define_global n init the_module),t) m in
-    List.fold_left global_var StringMap.empty globals in
+
+  let global_vars = StringMap.empty in
+
+  let filtered_main_binds = 
+    topstmts
+    |> List.filter (function
+      | A.Bind _ -> true
+      | _ -> false
+    ) in
+  let main_binds = 
+    filtered_main_binds
+    |> List.map (function | A.Bind b -> b) in
+
+  let filtered_main_stmts =
+    topstmts
+    |> List.filter (function
+      | A.Bind _ -> false
+      | _ -> true
+    ) 
+    |> List.rev
+    in
+  
+  let main_function = {
+    A.typ = A.Int;
+    A.fname = "main";
+    A.formals = [];
+    A.locals = main_binds;
+    A.body = filtered_main_stmts;
+  } in
+
+(*
+  let _ = Printf.printf "%s" (String.concat "\n" (List.map A.string_of_stmt main_function.A.body)) in
+  *)
+
+  let functions = main_function :: functions in
 
   (* Declare printf(), which the print built-in function will call *)
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
 
+
+  let pwr_fxn_num = Llvm.declare_function "pow" ( Llvm.function_type num_t [| num_t; num_t |] ) the_module in
+  let log_fxn_num = Llvm.declare_function "log" ( Llvm.function_type num_t [|  num_t |] ) the_module in
   (* Declare the built-in printbig() function *)
   let printbig_t = L.function_type i32_t [| i32_t |] in
   let printbig_func = L.declare_function "printbig" printbig_t the_module in
@@ -88,9 +104,9 @@ let translate (globals, functions) =
     let builder = L.builder_at_end context (L.entry_block the_function) in
 
     (* NEW formatting string for using printf on strings *)
-    let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in
+    let int_format_str = L.build_global_stringptr "%d\n" "fmtint" builder in
     let str_format_str = L.build_global_stringptr "%s\n" "fmtstr" builder in
-    let float_format_str = L.build_global_stringptr "%f\n" "fmtstr" builder in
+    let float_format_str = L.build_global_stringptr "%f\n" "floatstr" builder in
 
     (* Construct the function's "locals": formal arguments and locally
        declared variables.  Allocate each on the stack, initialize their
@@ -114,7 +130,6 @@ let translate (globals, functions) =
       with | Not_found -> StringMap.find n global_vars
       	   | Not_found -> Hashtbl.find init_hash n
     in
-
     (* Construct code for an expression; return its value *)
     let rec expr builder = function
         A.Literal i -> L.const_int i32_t i 
@@ -131,24 +146,79 @@ let translate (globals, functions) =
 
         let bop_int_with_num (e1, e2) =
           (match e1, e2 with
-           | A.Literal i , A.NumLit n -> ignore(print_string "SHIT"); ignore(n); (expr builder (A.NumLit (float_of_int (i))), e2')
-           | A.NumLit n, A.Literal i -> ignore(n); (e1', expr builder (A.NumLit (float_of_int (i)) ))
-           | A.Id(n), A.Id(i) -> let s_v1, t1 = lookup n in 
-             let s_v2, t2 = lookup i in
-             (*if (t1 = t2) && (t1 = A.Int) then e1', e2'
-               else if (t1 = t2) && (t1 = A.Num) then e1', e2'*)
-             if (t1 = A.Num) && (t2 = A.Int) then
-               e1', (L.build_sitofp e2' num_t "cast" builder)
-             else if (t1 = A.Int) && (t2 = A.Num) then
-               (L.build_sitofp e1' num_t "cast" builder), e2'
+           | A.Literal i , A.NumLit _ -> expr builder (A.NumLit (float_of_int (i))), e2', A.Num
+           | A.NumLit _, A.Literal i -> e1', expr builder (A.NumLit (float_of_int (i)) ), A.Num
+           | A.Id(n), A.Id(i) -> let _, t1 = lookup n in 
+             let _, t2 = lookup i in
+             if (t1 = A.Num) && (t2 = A.Int) then 
+               e1', (L.build_sitofp e2' num_t "cast" builder), A.Num
+             else if (t1 = A.Int) && (t2 = A.Num) then 
+               (L.build_sitofp e1' num_t "cast" builder), e2', A.Num
+             else if t1 = A.Int && t2 = A.Int then
+              e1', e2', A.Int
+             else if t1 = A.Num && t2 = A.Num then
+               e1', e2', A.Num
+             else if t1 = A.Bool && t2 = A.Bool then
+               e1', e2', A.Bool
              else
-               e1', e2'
-           | _, _ -> e1', e2'
+               raise( IllegalType ) (* there should be no other types coming this way*)
+           | A.Id(n), A.Literal(_) -> let _, t1 = lookup n in 
+              if t1 = A.Num then 
+                e1', (L.build_sitofp e2' num_t "cast" builder), A.Num
+              else
+                e1', e2', A.Int
+           | A.Literal(_), A.Id(n) -> let _, t1 = lookup n in 
+              if t1 = A.Num then 
+                (L.build_sitofp e1' num_t "cast" builder), e2', A.Num
+              else
+                e1', e2', A.Int
+            | A.Id(i), A.NumLit(_) -> let _, t1 = lookup i in 
+              if t1 = A.Int then 
+                (L.build_sitofp e1' num_t "cast" builder), e2', A.Num
+              else
+                e1', e2', A.Num
+            | A.NumLit(_), A.Id(n) -> let _, t1 = lookup n in 
+              if t1 = A.Int then 
+                e1', (L.build_sitofp e2' num_t "cast" builder), A.Num
+              else
+                e1', e2', A.Num
+            | A.BoolLit(_), A.BoolLit(_) -> e1', e2', A.Bool
+            | A.Literal(_), A.Literal(_) -> e1', e2', A.Int
+            | A.NumLit(_), A.NumLit(_) -> e1', e2', A.Num
+            | _, _ -> raise( IllegalType )
           ) in
         (* if we have int+num, cast int into a float and continue*)
-        let (e1', e2') = bop_int_with_num (e1, e2)
+        let (e1', e2', expr_type) = bop_int_with_num (e1, e2) in 
 
-        in
+        (* Exp and Log are run time functions because they are without llvm equivalents *)
+        if op = A.Exp then 
+        (* For exp functions, if num just call the exp function, else cast int to num
+        then build exp funtion then cast back to int *)
+            let exp_types = (match expr_type with
+            A.Num -> Llvm.build_call pwr_fxn_num [| e1'; e2' |] "pow_func" builder
+            | A.Int -> let e1_cast = L.build_sitofp e1' num_t "cast" builder in
+               let e2_cast = L.build_sitofp e2' num_t "cast" builder in
+               let pow_cast =  Llvm.build_call pwr_fxn_num [| e1_cast; e2_cast |] "pow_func" builder in
+               L.build_fptosi pow_cast i32_t "cast" builder
+            | _ -> raise( NotImplemented )
+            ) in exp_types
+        else if op = A.Log then
+        (* For log functions, if num, then get log_e of the num, then log_e of the base
+        then divide them using llvm divide fxn
+        for int, first convert, then do the above, then convert back *)
+         let log_types = (match expr_type with
+              A.Num -> let top_log = Llvm.build_call log_fxn_num [| e2' |] "log_func" builder in
+                       let bottom_log =  Llvm.build_call log_fxn_num [| e1' |] "log_func" builder in
+                       Llvm.build_fdiv top_log bottom_log "tmp" builder
+              | A.Int -> let e1_cast = L.build_sitofp e1' num_t "cast" builder in
+                       let e2_cast = L.build_sitofp e2' num_t "cast" builder in
+                       let top_log = Llvm.build_call log_fxn_num [| e2_cast |] "log_func" builder in
+                       let bottom_log =  Llvm.build_call log_fxn_num [| e1_cast |] "log_func" builder in
+                       let eval_l = Llvm.build_fdiv top_log bottom_log "tmp" builder in
+                       L.build_fptosi eval_l i32_t "cast" builder
+              | _ -> raise( NotImplemented )
+            ) in log_types
+        else
         let int_bop op = 
           (match op with
              A.Add     -> L.build_add
@@ -157,12 +227,14 @@ let translate (globals, functions) =
            | A.Div     -> L.build_sdiv
            | A.And     -> L.build_and
            | A.Or      -> L.build_or
+           | A.Mod     -> L.build_srem
            | A.Equal   -> L.build_icmp L.Icmp.Eq
            | A.Neq     -> L.build_icmp L.Icmp.Ne
            | A.Less    -> L.build_icmp L.Icmp.Slt
            | A.Leq     -> L.build_icmp L.Icmp.Sle
            | A.Greater -> L.build_icmp L.Icmp.Sgt
            | A.Geq     -> L.build_icmp L.Icmp.Sge
+           | _ -> raise( IllegalType )
           ) e1' e2' "tmp" builder in
         let num_bop op = 
           (match op with
@@ -171,6 +243,7 @@ let translate (globals, functions) =
            | A.Mult    -> L.build_fmul
            | A.Div     -> L.build_fdiv
            | A.And     -> L.build_and
+           | A.Mod     -> L.build_frem
            | A.Or      -> L.build_or
            | A.Equal   -> L.build_icmp L.Icmp.Eq
            | A.Neq     -> L.build_icmp L.Icmp.Ne
@@ -178,6 +251,7 @@ let translate (globals, functions) =
            | A.Leq     -> L.build_icmp L.Icmp.Sle
            | A.Greater -> L.build_icmp L.Icmp.Sgt
            | A.Geq     -> L.build_icmp L.Icmp.Sge
+           | _ -> raise( IllegalType )
           ) e1' e2' "tmp" builder in
         let string_of_e1'_llvalue = L.string_of_llvalue e1'
         and string_of_e2'_llvalue = L.string_of_llvalue e2' in
@@ -223,7 +297,7 @@ let translate (globals, functions) =
          | A.Not     -> L.build_not) e' "tmp" builder
       | A.Assign (s, e) -> let e' = expr builder e in ignore( let (s_v, _) = (lookup s) in
                                                               L.build_store e' s_v builder); e'
-      | A.Call ("print_int", [e]) | A.Call ("printb", [e]) ->
+      | A.Call ("print_int", [e]) | A.Call ("print_bool", [e]) ->
         L.build_call printf_func [| int_format_str ; (expr builder e) |]
           "printf" builder
       | A.Call ("print_num", [e]) ->

@@ -8,8 +8,8 @@ open Ast
 %token PLUS MINUS TIMES DIVIDE ASSIGN NOT
 %token EXP LOG MOD
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR
-%token RETURN IF ELSE FOR WHILE INT BOOL VOID
-%token STRING NUM
+%token RETURN IF ELSE ELSEIF FOR WHILE 
+%token INT BOOL SYMBOL VOID STRING NUM
 %token DEF COLON
 %token <int> LITERAL
 %token <string> STRING_LITERAL
@@ -19,6 +19,7 @@ open Ast
 
 %nonassoc NOELSE
 %nonassoc ELSE
+%nonassoc ELSEIF
 %right ASSIGN
 %left OR
 %left AND
@@ -41,7 +42,7 @@ program:
 
 decls:
    /* nothing */ { [], [] }
- | decls vdecl { ($2 :: fst $1), snd $1 }
+ | decls stmt { ($2 :: fst $1), snd $1 }
  | decls fdecl { fst $1, ($2 :: snd $1) }
 
 fdecl:
@@ -88,11 +89,16 @@ stmt:
   | RETURN expr SEMI { Return $2 }
   | LBRACE stmt_list RBRACE { Block(List.rev $2) }
   | IF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5, Block([])) }
-  | IF LPAREN expr RPAREN stmt ELSE stmt    { If($3, $5, $7) }
-  | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
-     { For($3, $5, $7, $9) }
+  | IF LPAREN expr RPAREN stmt else_stmt { If($3, $5, $6) }
+  | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt { For($3, $5, $7, $9) }
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
   | typ ID ASSIGN expr SEMI { Initialize ($1, $2, $4) }
+  | vdecl { Bind $1 }
+
+else_stmt:
+  ELSEIF LPAREN expr RPAREN stmt else_stmt { If($3, $5, $6) }
+  | ELSE stmt { $2 }
+
 
 expr_opt:
     /* nothing */ { Noexpr }

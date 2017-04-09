@@ -7,7 +7,7 @@ type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
 type uop = Neg | Not
 
 (* NEW types *)
-type typ = Int | Bool | Num | String | Void
+type typ = Int | Bool | Num | String | Symbol | Void
 
 type bind = typ * string
 
@@ -31,6 +31,8 @@ type stmt =
   | For of expr * expr * expr * stmt
   | While of expr * stmt
   | Initialize of typ * string * expr  
+  | Bind of bind
+
 
 type func_decl = {
     typ : typ;
@@ -40,7 +42,7 @@ type func_decl = {
     body : stmt list;
   }
 
-type program = bind list * func_decl list
+type program = stmt list * func_decl list
 
 (* Pretty-printing functions *)
 
@@ -82,6 +84,17 @@ let rec string_of_expr = function
       f ^ "(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
   | Noexpr -> ""
 
+(* NEW print string, print num *)
+let string_of_typ = function
+    Int -> "int"
+  | Bool -> "bool"
+  | Void -> "void"
+  | String -> "string"
+  | Num -> "num"
+  | Symbol -> "symbol"
+
+let string_of_vdecl (t, id) = string_of_typ t ^ " " ^ id ^ ";\n"
+
 let rec string_of_stmt = function
     Block(stmts) ->
       "{\n" ^ String.concat "" (List.map string_of_stmt stmts) ^ "}\n"
@@ -94,16 +107,7 @@ let rec string_of_stmt = function
       "for (" ^ string_of_expr e1  ^ " ; " ^ string_of_expr e2 ^ " ; " ^
       string_of_expr e3  ^ ") " ^ string_of_stmt s
   | While(e, s) -> "while (" ^ string_of_expr e ^ ") " ^ string_of_stmt s
-
-(* NEW print string, print num *)
-let string_of_typ = function
-    Int -> "int"
-  | Bool -> "bool"
-  | Void -> "void"
-  | String -> "string"
-  | Num -> "num"
-
-let string_of_vdecl (t, id) = string_of_typ t ^ " " ^ id ^ ";\n"
+  | Bind(t, i) -> string_of_vdecl (t, i)
 
 let string_of_fdecl fdecl =
   string_of_typ fdecl.typ ^ " " ^
@@ -113,6 +117,11 @@ let string_of_fdecl fdecl =
   String.concat "" (List.map string_of_stmt fdecl.body) ^
   "}\n"
 
-let string_of_program (vars, funcs) =
-  String.concat "" (List.map string_of_vdecl vars) ^ "\n" ^
-  String.concat "\n" (List.map string_of_fdecl funcs)
+let string_of_topstmts topstmts =
+  "int main() { \n" ^
+  String.concat "\n" (List.map string_of_stmt topstmts) ^ "}"
+
+let string_of_program (topstmts, funcs) =
+  String.concat "" (List.map string_of_fdecl funcs) ^ "\n" ^
+  string_of_topstmts topstmts ^ "\n"
+
