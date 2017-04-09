@@ -87,16 +87,16 @@ let check (globals, functions) =
 
     (* Type of each variable (global, formal, or local *)
     let symbols = List.fold_left (fun m (t, n) -> StringMap.add n t m)
-	StringMap.empty (globals @ func.formals @ func.locals )
+	StringMap.empty (globals @ func.formals @ func.locals)
     in
-
+        
     let type_of_identifier s =
       try StringMap.find s symbols
       with Not_found -> raise (Failure ("undeclared identifier " ^ s))
     in
     (* Return the type of an expression or throw an exception *)
     let rec expr = function
-	     Literal _ -> Int
+	Literal _ -> Int
       | BoolLit _ -> Bool
       (* NEW an expression can be a string literal *)
       | NumLit _ -> Num
@@ -140,7 +140,7 @@ let check (globals, functions) =
              fd.formals actuals;
            fd.typ
     in
-
+    
     let check_bool_expr e = if expr e != Bool
      then raise (Failure ("expected Boolean expression in " ^ string_of_expr e))
      else () in
@@ -165,8 +165,8 @@ let check (globals, functions) =
       | For(e1, e2, e3, st) -> ignore (expr e1); check_bool_expr e2;
                                ignore (expr e3); stmt st
       | While(p, s) -> check_bool_expr p; stmt s
+      | Initialize(t, n, e) -> ignore(StringMap.add n t symbols); ignore(check_assign t (expr e) (Failure ("illegal assignment")))
     in
-
     stmt (Block func.body)
    
   in

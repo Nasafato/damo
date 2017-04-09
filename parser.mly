@@ -74,10 +74,9 @@ typ:
 vdecl_list:
     /* nothing */    { [] }
   | vdecl_list vdecl { $2 :: $1 }
-
+ 
 vdecl:
     typ ID SEMI { ($1, $2) }
-  (*| typ ID ASSIGN expr SEMI {($1, Assign($2, $4)) }*)
 
 stmt_list:
     /* nothing */  { [] }
@@ -93,6 +92,7 @@ stmt:
   | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
      { For($3, $5, $7, $9) }
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
+  | typ ID ASSIGN expr SEMI { Initialize ($1, $2, $4) }
 
 expr_opt:
     /* nothing */ { Noexpr }

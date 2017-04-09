@@ -108,10 +108,11 @@ let translate (globals, functions) =
       let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
           (Array.to_list (L.params the_function)) in
       List.fold_left add_local formals fdecl.A.locals in
-
+    let init_hash = Hashtbl.create 20 in 
     (* Return the value for a variable or formal argument *)
     let lookup n = try StringMap.find n local_vars
-      with Not_found -> StringMap.find n global_vars
+      with | Not_found -> StringMap.find n global_vars
+      	   | Not_found -> Hashtbl.find init_hash n
     in
 
     (* Construct code for an expression; return its value *)
@@ -286,7 +287,12 @@ let translate (globals, functions) =
         let merge_bb = L.append_block context "merge" the_function in
         ignore (L.build_cond_br bool_val body_bb merge_bb pred_builder);
         L.builder_at_end context merge_bb
-
+      
+      | A.Initialize(t, n, e) -> let e' = expr builder e in L.set_value_name n e'; 
+        	let local = L.build_alloca (ltype_of_typ t) n builder in
+        	ignore(L.build_store e' local builder);
+        	ignore(Hashtbl.add init_hash n (local, t)); builder
+ 
       | A.For (e1, e2, e3, body) -> stmt builder
                                       ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
     in
