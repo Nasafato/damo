@@ -127,8 +127,9 @@ let translate (topstmts, functions) =
     let init_hash = Hashtbl.create 20 in 
     (* Return the value for a variable or formal argument *)
     let lookup n = try StringMap.find n local_vars
-      with | Not_found -> StringMap.find n global_vars
-      	   | Not_found -> Hashtbl.find init_hash n
+      with Not_found -> try StringMap.find n global_vars
+      with Not_found -> try Hashtbl.find init_hash n
+      with Not_found -> raise (Failure ("not defined yet")) 
     in
     (* Construct code for an expression; return its value *)
     let rec expr builder = function
@@ -362,7 +363,7 @@ let translate (topstmts, functions) =
         ignore (L.build_cond_br bool_val body_bb merge_bb pred_builder);
         L.builder_at_end context merge_bb
       
-      | A.Initialize(t, n, e) -> let e' = expr builder e in L.set_value_name n e'; 
+      | A.Initialize(t, n, e) -> let e' = expr builder e in  
         	let local = L.build_alloca (ltype_of_typ t) n builder in
         	ignore(L.build_store e' local builder);
         	ignore(Hashtbl.add init_hash n (local, t)); builder
