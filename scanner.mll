@@ -29,6 +29,8 @@ rule token = parse
 | ';'      { SEMI }
 | ':'		{ COLON } (* NEW for our function syntax *)
 | ','      { COMMA }
+| '['	   { LBRACKET }
+| ']'	   { RBRACKET }
 
 (* Operators *)
 | '+'      { PLUS }

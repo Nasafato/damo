@@ -124,6 +124,8 @@ let translate (topstmts, functions) =
       let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
           (Array.to_list (L.params the_function)) in
       List.fold_left add_local formals fdecl.A.locals in
+    let array_hash = Hashtbl.create 20 in 
+
     let init_hash = Hashtbl.create 20 in 
     (* Return the value for a variable or formal argument *)
     let lookup n = try StringMap.find n local_vars
@@ -140,6 +142,10 @@ let translate (topstmts, functions) =
       | A.NumLit num -> L.const_float num_t num
       | A.Noexpr -> L.const_int i32_t 0
       | A.Id s -> let (s_v,_) = lookup s in L.build_load s_v s builder
+      | A.Indexing (n, e) -> let pointer = Hashtbl.find array_hash n in
+		let e' = expr builder e in 
+		L.build_load (L.build_gep pointer [| e' |] "tmp" builder) "val" builder
+		  
       | A.Binop (e1, op, e2) ->
 
         let e1' = expr builder e1
@@ -367,8 +373,12 @@ let translate (topstmts, functions) =
         	let local = L.build_alloca (ltype_of_typ t) n builder in
         	ignore(L.build_store e' local builder);
         	ignore(Hashtbl.add init_hash n (local, t)); builder
- 
-      | A.For (e1, e2, e3, body) -> stmt builder
+      
+      | A.Array(t, n, e)-> let e' = expr builder e
+		in let array_t = L.build_array_malloc (ltype_of_typ t) e' "arr" builder in
+	        ignore(Hashtbl.add array_hash n array_t); builder
+      
+      | A.For(e1, e2, e3, body) -> stmt builder
                                       ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
     in
 

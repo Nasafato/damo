@@ -21,6 +21,7 @@ type expr =
   | Unop of uop * expr
   | Assign of string * expr
   | Call of string * expr list
+  | Indexing of string * expr  
   | Noexpr
 
 type stmt =
@@ -30,7 +31,8 @@ type stmt =
   | If of expr * stmt * stmt
   | For of expr * expr * expr * stmt
   | While of expr * stmt
-  | Initialize of typ * string * expr  
+  | Initialize of typ * string * expr 
+  | Array of typ * string * expr  
   | Bind of bind
 
 

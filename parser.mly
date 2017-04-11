@@ -4,7 +4,7 @@
 open Ast
 %}
 
-%token SEMI LPAREN RPAREN LBRACE RBRACE COMMA
+%token SEMI LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET COMMA
 %token PLUS MINUS TIMES DIVIDE ASSIGN NOT
 %token EXP LOG MOD
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR
@@ -78,7 +78,7 @@ vdecl_list:
  
 vdecl:
     typ ID SEMI { ($1, $2) }
-
+    
 stmt_list:
     /* nothing */  { [] }
   | stmt_list stmt { $2 :: $1 }
@@ -94,11 +94,12 @@ stmt:
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
   | typ ID ASSIGN expr SEMI { Initialize ($1, $2, $4) }
   | vdecl { Bind $1 }
+  | typ ID LBRACKET expr RBRACKET SEMI { Array($1, $2, $4) }
+  | ID LBRACKET expr RBRACKET ASSIGN expr SEMI{ Arrassign($1, $3, $6) } 
 
 else_stmt:
-  ELSEIF LPAREN expr RPAREN stmt else_stmt { If($3, $5, $6) }
+    ELSEIF LPAREN expr RPAREN stmt else_stmt { If($3, $5, $6) }
   | ELSE stmt { $2 }
-
 
 expr_opt:
     /* nothing */ { Noexpr }
@@ -131,7 +132,8 @@ expr:
   | ID ASSIGN expr   { Assign($1, $3) }
   | ID LPAREN actuals_opt RPAREN { Call($1, $3) }
   | LPAREN expr RPAREN { $2 }
-
+  | ID LBRACKET expr RBRACKET { Indexing($1, $3) } 
+   
 actuals_opt:
     /* nothing */ { [] }
   | actuals_list  { List.rev $1 }
