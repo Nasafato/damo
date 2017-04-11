@@ -142,7 +142,7 @@ let translate (topstmts, functions) =
       | A.NumLit num -> L.const_float num_t num
       | A.Noexpr -> L.const_int i32_t 0
       | A.Id s -> let (s_v,_) = lookup s in L.build_load s_v s builder
-      | A.Indexing (n, e) -> let pointer = Hashtbl.find array_hash n in
+      | A.Indexing (n, e) -> let (pointer,_) = Hashtbl.find array_hash n in
 		let e' = expr builder e in 
 		L.build_load (L.build_gep pointer [| e' |] "tmp" builder) "val" builder
 		  
@@ -376,8 +376,14 @@ let translate (topstmts, functions) =
       
       | A.Array(t, n, e)-> let e' = expr builder e
 		in let array_t = L.build_array_malloc (ltype_of_typ t) e' "arr" builder in
-	        ignore(Hashtbl.add array_hash n array_t); builder
-      
+	        ignore(Hashtbl.add array_hash n (array_t, t)); builder
+     
+      | A.Arrassign(n, e1, e2)-> let (pointer,_) = Hashtbl.find array_hash n in
+		let e1' = expr builder e1 in
+		let e2' = expr builder e2 in
+		L.build_store e2' (L.build_gep pointer [| e1' |] "tmp" builder) builder; builder
+
+    
       | A.For(e1, e2, e3, body) -> stmt builder
                                       ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
     in

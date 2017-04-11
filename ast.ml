@@ -33,6 +33,7 @@ type stmt =
   | While of expr * stmt
   | Initialize of typ * string * expr 
   | Array of typ * string * expr  
+  | Arrassign of string * expr * expr
   | Bind of bind
 
 
