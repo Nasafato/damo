@@ -47,9 +47,9 @@ let translate (topstmts, functions) =
   let filtered_main_binds = 
     topstmts
     |> List.filter (function
-      | A.Bind _ -> true
-      | _ -> false
-    ) in
+        | A.Bind _ -> true
+        | _ -> false
+      ) in
   let main_binds = 
     filtered_main_binds
     |> List.map (function | A.Bind b -> b) in
@@ -57,12 +57,12 @@ let translate (topstmts, functions) =
   let filtered_main_stmts =
     topstmts
     |> List.filter (function
-      | A.Bind _ -> false
-      | _ -> true
-    ) 
+        | A.Bind _ -> false
+        | _ -> true
+      ) 
     |> List.rev
-    in
-  
+  in
+
   let main_function = {
     A.typ = A.Int;
     A.fname = "main";
@@ -130,8 +130,8 @@ let translate (topstmts, functions) =
     (* Return the value for a variable or formal argument *)
     let lookup n = try StringMap.find n local_vars
       with Not_found -> try StringMap.find n global_vars
-      with Not_found -> try Hashtbl.find init_hash n
-      with Not_found -> raise (Failure ("not defined yet")) 
+        with Not_found -> try Hashtbl.find init_hash n
+          with Not_found -> raise (Failure ("not defined yet")) 
     in
     (* Construct code for an expression; return its value *)
     let rec expr builder = function
@@ -143,9 +143,9 @@ let translate (topstmts, functions) =
       | A.Noexpr -> L.const_int i32_t 0
       | A.Id s -> let (s_v,_) = lookup s in L.build_load s_v s builder
       | A.Indexing (n, e) -> let (pointer,_) = Hashtbl.find array_hash n in
-		let e' = expr builder e in 
-		L.build_load (L.build_gep pointer [| e' |] "tmp" builder) "val" builder
-		  
+        let e' = expr builder e in 
+        L.build_load (L.build_gep pointer [| e' |] "tmp" builder) "val" builder
+
       | A.Binop (e1, op, e2) ->
 
         let e1' = expr builder e1
@@ -162,7 +162,7 @@ let translate (topstmts, functions) =
              else if (t1 = A.Int) && (t2 = A.Num) then 
                (L.build_sitofp e1' num_t "cast" builder), e2', A.Num
              else if t1 = A.Int && t2 = A.Int then
-              e1', e2', A.Int
+               e1', e2', A.Int
              else if t1 = A.Num && t2 = A.Num then
                e1', e2', A.Num
              else if t1 = A.Bool && t2 = A.Bool then
@@ -170,131 +170,131 @@ let translate (topstmts, functions) =
              else
                raise( IllegalType ) (* there should be no other types coming this way*)
            | A.Id(n), A.Literal(_) -> let _, t1 = lookup n in 
-              if t1 = A.Num then 
-                e1', (L.build_sitofp e2' num_t "cast" builder), A.Num
-              else
-                e1', e2', A.Int
+             if t1 = A.Num then 
+               e1', (L.build_sitofp e2' num_t "cast" builder), A.Num
+             else
+               e1', e2', A.Int
            | A.Literal(_), A.Id(n) -> let _, t1 = lookup n in 
-              if t1 = A.Num then 
-                (L.build_sitofp e1' num_t "cast" builder), e2', A.Num
-              else
-                e1', e2', A.Int
-            | A.Id(i), A.NumLit(_) -> let _, t1 = lookup i in 
-              if t1 = A.Int then 
-                (L.build_sitofp e1' num_t "cast" builder), e2', A.Num
-              else
-                e1', e2', A.Num
-            | A.NumLit(_), A.Id(n) -> let _, t1 = lookup n in 
-              if t1 = A.Int then 
-                e1', (L.build_sitofp e2' num_t "cast" builder), A.Num
-              else
-                e1', e2', A.Num
-            | A.BoolLit(_), A.BoolLit(_) -> e1', e2', A.Bool
-            | A.Literal(_), A.Literal(_) -> e1', e2', A.Int
-            | A.NumLit(_), A.NumLit(_) -> e1', e2', A.Num
-            | _, _ -> raise( IllegalType )
+             if t1 = A.Num then 
+               (L.build_sitofp e1' num_t "cast" builder), e2', A.Num
+             else
+               e1', e2', A.Int
+           | A.Id(i), A.NumLit(_) -> let _, t1 = lookup i in 
+             if t1 = A.Int then 
+               (L.build_sitofp e1' num_t "cast" builder), e2', A.Num
+             else
+               e1', e2', A.Num
+           | A.NumLit(_), A.Id(n) -> let _, t1 = lookup n in 
+             if t1 = A.Int then 
+               e1', (L.build_sitofp e2' num_t "cast" builder), A.Num
+             else
+               e1', e2', A.Num
+           | A.BoolLit(_), A.BoolLit(_) -> e1', e2', A.Bool
+           | A.Literal(_), A.Literal(_) -> e1', e2', A.Int
+           | A.NumLit(_), A.NumLit(_) -> e1', e2', A.Num
+           | _, _ -> raise( IllegalType )
           ) in
         (* if we have int+num, cast int into a float and continue*)
         let (e1', e2', expr_type) = bop_int_with_num (e1, e2) in 
 
         (* Exp and Log are run time functions because they are without llvm equivalents *)
         if op = A.Exp then 
-        (* For exp functions, if num just call the exp function, else cast int to num
-        then build exp funtion then cast back to int *)
-            let exp_types = (match expr_type with
-            A.Num -> Llvm.build_call pwr_fxn_num [| e1'; e2' |] "pow_func" builder
-            | A.Int -> let e1_cast = L.build_sitofp e1' num_t "cast" builder in
-               let e2_cast = L.build_sitofp e2' num_t "cast" builder in
-               let pow_cast =  Llvm.build_call pwr_fxn_num [| e1_cast; e2_cast |] "pow_func" builder in
-               L.build_fptosi pow_cast i32_t "cast" builder
-            | _ -> raise( NotImplemented )
+          (* For exp functions, if num just call the exp function, else cast int to num
+             then build exp funtion then cast back to int *)
+          let exp_types = (match expr_type with
+                A.Num -> Llvm.build_call pwr_fxn_num [| e1'; e2' |] "pow_func" builder
+              | A.Int -> let e1_cast = L.build_sitofp e1' num_t "cast" builder in
+                let e2_cast = L.build_sitofp e2' num_t "cast" builder in
+                let pow_cast =  Llvm.build_call pwr_fxn_num [| e1_cast; e2_cast |] "pow_func" builder in
+                L.build_fptosi pow_cast i32_t "cast" builder
+              | _ -> raise( NotImplemented )
             ) in exp_types
         else if op = A.Log then
-        (* For log functions, if num, then get log_e of the num, then log_e of the base
-        then divide them using llvm divide fxn
-        for int, first convert, then do the above, then convert back *)
-         let log_types = (match expr_type with
-              A.Num -> let top_log = Llvm.build_call log_fxn_num [| e2' |] "log_func" builder in
-                       let bottom_log =  Llvm.build_call log_fxn_num [| e1' |] "log_func" builder in
-                       Llvm.build_fdiv top_log bottom_log "tmp" builder
+          (* For log functions, if num, then get log_e of the num, then log_e of the base
+             then divide them using llvm divide fxn
+             for int, first convert, then do the above, then convert back *)
+          let log_types = (match expr_type with
+                A.Num -> let top_log = Llvm.build_call log_fxn_num [| e2' |] "log_func" builder in
+                let bottom_log =  Llvm.build_call log_fxn_num [| e1' |] "log_func" builder in
+                Llvm.build_fdiv top_log bottom_log "tmp" builder
               | A.Int -> let e1_cast = L.build_sitofp e1' num_t "cast" builder in
-                       let e2_cast = L.build_sitofp e2' num_t "cast" builder in
-                       let top_log = Llvm.build_call log_fxn_num [| e2_cast |] "log_func" builder in
-                       let bottom_log =  Llvm.build_call log_fxn_num [| e1_cast |] "log_func" builder in
-                       let eval_l = Llvm.build_fdiv top_log bottom_log "tmp" builder in
-                       L.build_fptosi eval_l i32_t "cast" builder
+                let e2_cast = L.build_sitofp e2' num_t "cast" builder in
+                let top_log = Llvm.build_call log_fxn_num [| e2_cast |] "log_func" builder in
+                let bottom_log =  Llvm.build_call log_fxn_num [| e1_cast |] "log_func" builder in
+                let eval_l = Llvm.build_fdiv top_log bottom_log "tmp" builder in
+                L.build_fptosi eval_l i32_t "cast" builder
               | _ -> raise( NotImplemented )
             ) in log_types
         else
-        let int_bop op = 
-          (match op with
-             A.Add     -> L.build_add
-           | A.Sub     -> L.build_sub
-           | A.Mult    -> L.build_mul
-           | A.Div     -> L.build_sdiv
-           | A.And     -> L.build_and
-           | A.Or      -> L.build_or
-           | A.Mod     -> L.build_srem
-           | A.Equal   -> L.build_icmp L.Icmp.Eq
-           | A.Neq     -> L.build_icmp L.Icmp.Ne
-           | A.Less    -> L.build_icmp L.Icmp.Slt
-           | A.Leq     -> L.build_icmp L.Icmp.Sle
-           | A.Greater -> L.build_icmp L.Icmp.Sgt
-           | A.Geq     -> L.build_icmp L.Icmp.Sge
-           | _ -> raise( IllegalType )
-          ) e1' e2' "tmp" builder in
-        let num_bop op = 
-          (match op with
-             A.Add     -> L.build_fadd
-           | A.Sub     -> L.build_fsub
-           | A.Mult    -> L.build_fmul
-           | A.Div     -> L.build_fdiv
-           | A.And     -> L.build_and
-           | A.Mod     -> L.build_frem
-           | A.Or      -> L.build_or
-           | A.Equal   -> L.build_icmp L.Icmp.Eq
-           | A.Neq     -> L.build_icmp L.Icmp.Ne
-           | A.Less    -> L.build_icmp L.Icmp.Slt
-           | A.Leq     -> L.build_icmp L.Icmp.Sle
-           | A.Greater -> L.build_icmp L.Icmp.Sgt
-           | A.Geq     -> L.build_icmp L.Icmp.Sge
-           | _ -> raise( IllegalType )
-          ) e1' e2' "tmp" builder in
-        let string_of_e1'_llvalue = L.string_of_llvalue e1'
-        and string_of_e2'_llvalue = L.string_of_llvalue e2' in
+          let int_bop op = 
+            (match op with
+               A.Add     -> L.build_add
+             | A.Sub     -> L.build_sub
+             | A.Mult    -> L.build_mul
+             | A.Div     -> L.build_sdiv
+             | A.And     -> L.build_and
+             | A.Or      -> L.build_or
+             | A.Mod     -> L.build_srem
+             | A.Equal   -> L.build_icmp L.Icmp.Eq
+             | A.Neq     -> L.build_icmp L.Icmp.Ne
+             | A.Less    -> L.build_icmp L.Icmp.Slt
+             | A.Leq     -> L.build_icmp L.Icmp.Sle
+             | A.Greater -> L.build_icmp L.Icmp.Sgt
+             | A.Geq     -> L.build_icmp L.Icmp.Sge
+             | _ -> raise( IllegalType )
+            ) e1' e2' "tmp" builder in
+          let num_bop op = 
+            (match op with
+               A.Add     -> L.build_fadd
+             | A.Sub     -> L.build_fsub
+             | A.Mult    -> L.build_fmul
+             | A.Div     -> L.build_fdiv
+             | A.And     -> L.build_and
+             | A.Mod     -> L.build_frem
+             | A.Or      -> L.build_or
+             | A.Equal   -> L.build_icmp L.Icmp.Eq
+             | A.Neq     -> L.build_icmp L.Icmp.Ne
+             | A.Less    -> L.build_icmp L.Icmp.Slt
+             | A.Leq     -> L.build_icmp L.Icmp.Sle
+             | A.Greater -> L.build_icmp L.Icmp.Sgt
+             | A.Geq     -> L.build_icmp L.Icmp.Sge
+             | _ -> raise( IllegalType )
+            ) e1' e2' "tmp" builder in
+          let string_of_e1'_llvalue = L.string_of_llvalue e1'
+          and string_of_e2'_llvalue = L.string_of_llvalue e2' in
 
-        let space = Str.regexp " " in
+          let space = Str.regexp " " in
 
-        let list_of_e1'_llvalue = Str.split space string_of_e1'_llvalue 
-        and list_of_e2'_llvalue = Str.split space string_of_e2'_llvalue in
+          let list_of_e1'_llvalue = Str.split space string_of_e1'_llvalue 
+          and list_of_e2'_llvalue = Str.split space string_of_e2'_llvalue in
 
-        let i32_re = Str.regexp "i32\\|32*\\|i8\\|i8\\|i1\\|i1*"
-        and num_re = Str.regexp "double\\|double*" in
+          let i32_re = Str.regexp "i32\\|32*\\|i8\\|i8\\|i1\\|i1*"
+          and num_re = Str.regexp "double\\|double*" in
 
-        let rec match_string regexp str_list i =
-          let length = List.length str_list in
-          match (Str.string_match regexp (List.nth str_list i) 0) with
-            true -> true
-          | false -> if ( i> length - 2 ) then false else match_string regexp str_list (succ i) in
+          let rec match_string regexp str_list i =
+            let length = List.length str_list in
+            match (Str.string_match regexp (List.nth str_list i) 0) with
+              true -> true
+            | false -> if ( i> length - 2 ) then false else match_string regexp str_list (succ i) in
 
-        let get_type llvalue = match (match_string i32_re llvalue 0) with
-            true -> "int"
-          | false -> (match (match_string num_re llvalue 0) with
-                true -> "num"
-              | false -> "" ) in
+          let get_type llvalue = match (match_string i32_re llvalue 0) with
+              true -> "int"
+            | false -> (match (match_string num_re llvalue 0) with
+                  true -> "num"
+                | false -> "" ) in
 
-        let e1'_type = get_type list_of_e1'_llvalue
-        and e2'_type = get_type list_of_e2'_llvalue in
+          let e1'_type = get_type list_of_e1'_llvalue
+          and e2'_type = get_type list_of_e2'_llvalue in
 
-        let build_ops_with_types typ1 typ2 = 
-          match (typ1, typ2) with
-            "int", "int" -> int_bop op
-          | "num", "num" -> num_bop op
-          | "num", "int" -> num_bop op
-          | "int", "num" -> num_bop op
-          | _,_ -> ignore( print_string "Put execption here"); num_bop op
-        in
-        build_ops_with_types e1'_type e2'_type
+          let build_ops_with_types typ1 typ2 = 
+            match (typ1, typ2) with
+              "int", "int" -> int_bop op
+            | "num", "num" -> num_bop op
+            | "num", "int" -> num_bop op
+            | "int", "num" -> num_bop op
+            | _,_ -> ignore( print_string "Put execption here"); num_bop op
+          in
+          build_ops_with_types e1'_type e2'_type
       (* end building bin_ops*)
 
       | A.Unop(op, e) ->
@@ -368,24 +368,24 @@ let translate (topstmts, functions) =
         let merge_bb = L.append_block context "merge" the_function in
         ignore (L.build_cond_br bool_val body_bb merge_bb pred_builder);
         L.builder_at_end context merge_bb
-      
-      | A.Initialize(t, n, e) -> let e' = expr builder e in  
-        	let local = L.build_alloca (ltype_of_typ t) n builder in
-        	ignore(L.build_store e' local builder);
-        	ignore(Hashtbl.add init_hash n (local, t)); builder
-      
-      | A.Array(t, n, e)-> let e' = expr builder e
-		in let array_t = L.build_array_malloc (ltype_of_typ t) e' "arr" builder in
-	        ignore(Hashtbl.add array_hash n (array_t, t)); builder
-     
-      | A.Arrassign(n, e1, e2)-> let (pointer,_) = Hashtbl.find array_hash n in
-		let e1' = expr builder e1 in
-		let e2' = expr builder e2 in
-		L.build_store e2' (L.build_gep pointer [| e1' |] "tmp" builder) builder; builder
 
-    
+      | A.Initialize(t, n, e) -> let e' = expr builder e in  
+        let local = L.build_alloca (ltype_of_typ t) n builder in
+        ignore(L.build_store e' local builder);
+        ignore(Hashtbl.add init_hash n (local, t)); builder
+
+      | A.Array(t, n, e)-> let e' = expr builder e
+        in let array_t = L.build_array_malloc (ltype_of_typ t) e' "arr" builder in
+        ignore(Hashtbl.add array_hash n (array_t, t)); builder
+
+      | A.Arrassign(n, e1, e2)-> let (pointer,_) = Hashtbl.find array_hash n in
+        let e1' = expr builder e1 in
+        let e2' = expr builder e2 in
+        L.build_store e2' (L.build_gep pointer [| e1' |] "tmp" builder) builder; builder
+
+
       | A.For(e1, e2, e3, body) -> stmt builder
-                                      ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
+                                     ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
     in
 
     (* Build the code for each statement in the function *)
