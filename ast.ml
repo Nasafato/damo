@@ -9,7 +9,9 @@ type uop = Neg | Not
 (* NEW types *)
 type typ = Int | Bool | Num | String | Symbol | Void
 
-type bind = typ * string
+type bind = 
+    Decl of typ * string
+  | ArrDecl of typ * string * expr list
 
 type expr =
     Literal of int
@@ -17,6 +19,7 @@ type expr =
   | StringLit of string
   | NumLit of float
   | Id of string
+  | ArrID of string * expr list
   | Binop of expr * op * expr
   | Unop of uop * expr
   | Assign of string * expr

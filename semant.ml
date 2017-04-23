@@ -57,7 +57,7 @@ let check (topstmts, functions) =
   let symbol_functions = ["left" ; "right" ; "operation" ; "value" ] in
   let built_in_functions = reserved @ printing_functions @ symbol_functions in
   
-  (* NEW create list of functions *)
+  (* NEW create list of function names *)
   let function_list = List.map (fun fd -> fd.fname) functions in
 
   (* NEW check for prior existence of built in functions *)
@@ -66,7 +66,7 @@ let check (topstmts, functions) =
 
   report_duplicate (fun n -> "duplicate function " ^ n) function_list;
 
-  (* Function declaration for a named function *)
+  (* Function declaration for named functions *)
   let built_in_decls = StringMap.add "print"
      { typ = Void; fname = "print"; formals = [(String, "x")];
       locals = []; body = [] } (StringMap.add "print_num"
@@ -92,10 +92,12 @@ let check (topstmts, functions) =
       locals = []; body = [] } built_in_decls)))
    in
 
+  (* Create a hash map of functions, where key is function name *)
   let function_decls = List.fold_left (fun m fd -> StringMap.add fd.fname fd m)
       built_in_decls functions
   in
 
+  (* Determine whether function is contained in hash map function_decls *)
   let function_decl s = try StringMap.find s function_decls
     with Not_found -> raise (Failure ("unrecognized function " ^ s))
   in
@@ -126,7 +128,7 @@ let check (topstmts, functions) =
     (* Return the type of an expression or throw an exception *)
     let rec expr = function
 
-	Literal _ -> Int
+	IntLit _ -> Int
       | BoolLit _ -> Bool
       (* NEW an expression can be a string literal *)
       | NumLit _ -> Num

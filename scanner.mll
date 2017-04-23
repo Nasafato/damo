@@ -2,11 +2,12 @@
 
 { open Parser 
 
+(* TODO is this necessary? *)
 let unescape s = 
 	Scanf.sscanf ( "\"" ^s ^ "\"" ) "%S%!" (fun x -> x)
 }
 
-(* Complex regular expressions *)
+(* Complex regular expressions *) (* TODO are any of these unnecessary? *)
 let alpha = ['a'-'z' 'A'-'Z']
 let ascii = ([' '-'!' '#'-'[' ']'-'~' ])
 let digit = ['0'-'9']
@@ -37,9 +38,9 @@ rule token = parse
 | '-'      { MINUS }
 | '*'      { TIMES }
 | '/'      { DIVIDE }
-| '^'		{ EXP }	(* NEW *)
-| '_'		{ LOG } (* NEW *)
-| '%'		{ MOD } (* NEW *)
+| '^'		{ EXP }
+| '_'		{ LOG }
+| '%'		{ MOD }
 | '='      { ASSIGN }
 | "=="     { EQ }
 | "!="     { NEQ }
@@ -52,10 +53,10 @@ rule token = parse
 | "!"      { NOT }
 
 (* Control flow, functions *)
-| "def"		{ DEF } (* NEW for our function syntax *)
+| "def"		{ DEF }
 | "if"     { IF }
 | "else"   { ELSE }
-| "elseif"	{ ELSEIF } (* NEW elseif *)
+| "elseif"	{ ELSEIF }
 | "for"    { FOR }
 | "while"  { WHILE }
 | "return" { RETURN }
@@ -64,16 +65,16 @@ rule token = parse
 | "int"    { INT }
 | "bool"   { BOOL }
 | "void"   { VOID }
-| "string"	{ STRING } (* NEW *)
-| "num"		{ NUM } (* NEW *)
-| "symbol"	{ SYMBOL } (* NEW *)
+| "string"	{ STRING }
+| "num"		{ NUM }
+| "symbol"	{ SYMBOL }
 
-(* Literals *)
+(* Literals *) (* TODO can we replace all instances of Literal with Int_Literal? *)
 | "true"   { TRUE }
 | "false"  { FALSE }
-| int_re as lxm { LITERAL(int_of_string lxm) }
+| int_re as lxm { INT_LITERAL(int_of_string lxm) }
 | num_re as lxm { NUM_LITERAL(float_of_string lxm) }
-| string_re	{ STRING_LITERAL(unescape s) } (* NEW string literal *)
+| string_re	{ STRING_LITERAL(unescape s) }
 
 (* Others *)
 | id as lxm { ID(lxm) }

@@ -1,20 +1,23 @@
-/* Ocamlyacc parser for damo */
+/* Ocamlyacc parser for MicroC */
 
 %{
 open Ast
 %}
 
-%token SEMI LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET COMMA
-%token PLUS MINUS TIMES DIVIDE ASSIGN NOT
-%token EXP LOG MOD
-%token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR
-%token RETURN IF ELSE ELSEIF FOR WHILE 
-%token INT BOOL SYMBOL VOID STRING NUM
-%token DEF COLON
-%token <int> LITERAL
+%token SEMI COMMA
+%token LBRACKET RBRACKET LPAREN RPAREN LBRACE RBRACE
+%token PLUS MINUS TIMES DIVIDE EXP LOG MOD 
+%token NOT AND OR
+%token ASSIGN
+%token EQ NEQ LT LEQ GT GEQ 
+%token IF ELSE FOR WHILE 
+%token INT BOOL NUM STRING SYMBOL VOID
+%token DEF RETURN COLON
+%token TRUE FALSE
 %token <string> STRING_LITERAL
-%token <string> ID
 %token <float> NUM_LITERAL
+%token <int> INT_LITERAL
+%token <string> ID
 %token EOF
 
 %nonassoc NOELSE
@@ -41,20 +44,22 @@ program:
   decls EOF { $1 }
 
 decls:
-   /* nothing */ { [], [] }
- | decls stmt { ($2 :: fst $1), snd $1 }
- | decls fdecl { fst $1, ($2 :: snd $1) }
+   vdecl_list fdecl_list stmt_list { (List.rev $1, List.rev $2, List.rev $3) }
+
+fdecl_list:
+   /* nothing */ { [] }
+  | fdecl_list fdecl { $2 :: $1 }
 
 fdecl:
-  DEF ID LPAREN formals_opt RPAREN COLON typ LBRACE vdecl_list stmt_list RBRACE
-    {
-      {
+   DEF ID LPAREN formals_opt RPAREN COLON typ LBRACE vdecl_list stmt_list RBRACE
+    { 
+      { 
         typ = $7;
         fname = $2;
         formals = $4;
         locals = List.rev $9;
-        body = List.rev $10;
-      }
+        body = List.rev $10 
+      } 
     }
 
 formals_opt:
@@ -67,18 +72,24 @@ formal_list:
 
 typ:
     INT { Int }
-  | BOOL { Bool }
-  | VOID { Void }
-  | STRING { String }
   | NUM { Num }
+  | BOOL { Bool }
+  | STRING { String }
+  | SYMBOL { Symbol }
+  | VOID { Void }
 
 vdecl_list:
     /* nothing */    { [] }
   | vdecl_list vdecl { $2 :: $1 }
- 
+
 vdecl:
-    typ ID SEMI { ($1, $2) }
-    
+    typ ID SEMI { Decl($1, $2) }
+  | typ ID LBRACKET brackets RBRACKET SEMI { ArrDecl($1, $2, List.rev $4) }
+
+brackets:
+    expr { $1 }
+  | brackets RBRACKET LBRACKET expr { $4 :: $1 } 
+
 stmt_list:
     /* nothing */  { [] }
   | stmt_list stmt { $2 :: $1 }
@@ -89,29 +100,27 @@ stmt:
   | RETURN expr SEMI { Return $2 }
   | LBRACE stmt_list RBRACE { Block(List.rev $2) }
   | IF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5, Block([])) }
-  | IF LPAREN expr RPAREN stmt else_stmt { If($3, $5, $6) }
-  | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt { For($3, $5, $7, $9) }
+  | IF LPAREN expr RPAREN stmt else_stmt    { If($3, $5, $6) }
+  | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
+     { For($3, $5, $7, $9) }
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
-  | typ ID ASSIGN expr SEMI { Initialize ($1, $2, $4) }
-  | vdecl { Bind $1 }
-  | typ ID LBRACKET expr RBRACKET SEMI { Array($1, $2, $4) }
-  | ID LBRACKET expr RBRACKET ASSIGN expr SEMI{ Arrassign($1, $3, $6) } 
 
 else_stmt:
-    ELSEIF LPAREN expr RPAREN stmt else_stmt { If($3, $5, $6) }
-  | ELSE stmt { $2 }
+  ELSEIF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5, Block([])) }
+  | ELSEIF LPAREN expr RPAREN stmt else_stmt { If($3, $5, $6) }
 
 expr_opt:
     /* nothing */ { Noexpr }
   | expr          { $1 }
 
 expr:
-    LITERAL          { Literal($1) }
+    INT_LITERAL      { IntLit($1) }
+  | NUM_LITERAL      { NumLit($1) }
+  | STRING_LITERAL   { StringLit($1) }   
   | TRUE             { BoolLit(true) }
   | FALSE            { BoolLit(false) }
-  | STRING_LITERAL   { StringLit($1) }
-  | NUM_LITERAL      { NumLit($1) }
   | ID               { Id($1) }
+  | arrid            { $1 }
   | expr PLUS   expr { Binop($1, Add,   $3) }
   | expr MINUS  expr { Binop($1, Sub,   $3) }
   | expr TIMES  expr { Binop($1, Mult,  $3) }
@@ -129,11 +138,14 @@ expr:
   | expr OR     expr { Binop($1, Or,    $3) }
   | MINUS expr %prec NEG { Unop(Neg, $2) }
   | NOT expr         { Unop(Not, $2) }
-  | ID ASSIGN expr   { Assign($1, $3) }
+  | ID ASSIGN expr   { Assign(Id($1), $3) }
+  | arrid ASSIGN expr { Assign($1, $3) }
   | ID LPAREN actuals_opt RPAREN { Call($1, $3) }
   | LPAREN expr RPAREN { $2 }
-  | ID LBRACKET expr RBRACKET { Indexing($1, $3) } 
-   
+
+arrid:
+  ID LBRACKET brackets RBRACKET { ArrId($1, List.rev $3) }
+
 actuals_opt:
     /* nothing */ { [] }
   | actuals_list  { List.rev $1 }
