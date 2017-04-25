@@ -41,24 +41,22 @@ open Ast
 %%
 
 program:
-  decls EOF { $1 }
+  program_sequence EOF { List.rev $1 }
 
-decls:
-   vdecl_list fdecl_list stmt_list { (List.rev $1, List.rev $2, List.rev $3) }
-
-fdecl_list:
-   /* nothing */ { [] }
-  | fdecl_list fdecl { $2 :: $1 }
+program_sequence:
+  /* nothing */ { [] }
+  | program_sequence vdecl { $2 @ $1 }
+  | program_sequence fdecl { $2 :: $1 }
+  | program_sequence stmt { $2 :: $1 }
 
 fdecl:
-   DEF ID LPAREN formals_opt RPAREN COLON typ LBRACE vdecl_list stmt_list RBRACE
+   DEF ID LPAREN formals_opt RPAREN COLON typ LBRACE function_sequence RBRACE
     { 
       { 
         typ = $7;
         fname = $2;
         formals = $4;
-        locals = List.rev $9;
-        body = List.rev $10 
+        body = List.rev $9
       } 
     }
 
@@ -70,6 +68,11 @@ formal_list:
     typ ID                   { [($1,$2)] }
   | formal_list COMMA typ ID { ($3,$4) :: $1 }
 
+function_sequence:
+  /* nothing */ { [] }
+  | function_sequence vdecl { $2 @ $1 }
+  | function_sequence stmt { $2 :: $1 }
+
 typ:
     INT { Int }
   | NUM { Num }
@@ -78,13 +81,10 @@ typ:
   | SYMBOL { Symbol }
   | VOID { Void }
 
-vdecl_list:
-    /* nothing */    { [] }
-  | vdecl_list vdecl { $2 :: $1 }
-
 vdecl:
-    typ ID SEMI { Decl($1, $2) }
-  | typ ID LBRACKET brackets RBRACKET SEMI { ArrDecl($1, $2, List.rev $4) }
+    typ ID SEMI { [Decl($1, $2)] }
+  | typ ID ASSIGN expr SEMI { [Assign(Id($2), $4) ; Decl($1, $2)] }
+  | typ ID LBRACKET brackets RBRACKET SEMI { [ArrDecl($1, $2, List.rev $4)] }
 
 brackets:
     expr { $1 }
