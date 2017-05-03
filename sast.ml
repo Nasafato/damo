@@ -45,8 +45,7 @@ type s_function_unit =
 type s_func_decl = {
     typ : t;
     fname : string;
-    formals : s_bind list;
-    locals : s_bind list ;
+    formals : s_bind list; 
     body : s_bind list * s_stmt list;
   }
 

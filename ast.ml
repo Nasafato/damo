@@ -43,8 +43,7 @@ type function_unit =
 type func_decl = {
     typ : typ;
     fname : string;
-    formals : bind list;
-    locals : bind list ;
+    formals : bind list; 
     body : function_unit list;
   }
 
