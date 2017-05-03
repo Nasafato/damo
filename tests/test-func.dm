@@ -1,3 +1,5 @@
+print_int(15);
+
 def test(): int {
     int x;
 
@@ -7,5 +9,4 @@ def test(): int {
     return 0;
 }
 
-print_int(15);
 test();
