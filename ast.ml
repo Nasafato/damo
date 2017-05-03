@@ -29,25 +29,27 @@ type bind =
   | ArrDecl of typ * string * expr list
 
 type stmt =
-    Block of stmt list
-  | Expr of expr
+    Expr of expr
   | Return of expr
   | If of expr * stmt * stmt
   | For of expr * expr * expr * stmt
   | While of expr * stmt
   | Bind of bind
 
+type function_unit = 
+    VarFunit of bind
+  | StmtFunit of stmt
 
 type func_decl = {
     typ : typ;
     fname : string;
     formals : bind list;
     locals : bind list ;
-    body : bind list * stmt list;
+    body : function_unit list;
   }
 
 type program_unit = 
-  | VarUnit of bind
+    VarUnit of bind
   | FuncUnit of func_decl
   | StmtUnit of stmt
 

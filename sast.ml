@@ -31,14 +31,17 @@ type s_bind =
 
 
 type s_stmt =
-    Block of s_stmt list
-  | Expr of s_expr
+    Expr of s_expr
   | Return of s_expr
   | If of s_expr * s_stmt * s_stmt
   | For of s_expr * s_expr * s_expr * s_stmt
   | While of s_expr * s_stmt
   | Bind of s_bind
 
+type s_function_unit = 
+    VarFunit of s_bind
+  | StmtFunit of s_stmt
+ 
 type s_func_decl = {
     typ : t;
     fname : string;
@@ -48,7 +51,7 @@ type s_func_decl = {
   }
 
 type s_program_unit = 
-  | VarUnit of s_bind
+    VarUnit of s_bind
   | FuncUnit of s_func_decl
   | StmtUnit of s_stmt
 
