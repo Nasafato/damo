@@ -9,12 +9,8 @@ type uop = Neg | Not
 (* NEW types *)
 type typ = Int | Bool | Num | String | Symbol | Void
 
-type bind = 
-    Decl of typ * string
-  | ArrDecl of typ * string * expr list
-
 type expr =
-    Literal of int
+    IntLit of int
   | BoolLit of bool
   | StringLit of string
   | NumLit of float
@@ -27,6 +23,11 @@ type expr =
   | Indexing of string * expr  
   | Noexpr
 
+type bind = 
+    Decl of typ * string
+  | InitDecl of typ * string * expr
+  | ArrDecl of typ * string * expr list
+
 type stmt =
     Block of stmt list
   | Expr of expr
@@ -34,9 +35,6 @@ type stmt =
   | If of expr * stmt * stmt
   | For of expr * expr * expr * stmt
   | While of expr * stmt
-  | Initialize of typ * string * expr 
-  | Array of typ * string * expr  
-  | Arrassign of string * expr * expr
   | Bind of bind
 
 
@@ -45,10 +43,15 @@ type func_decl = {
     fname : string;
     formals : bind list;
     locals : bind list ;
-    body : stmt list;
+    body : bind list * stmt list;
   }
 
-type program = stmt list * func_decl list
+type program_unit = 
+  | VarUnit of bind
+  | FuncUnit of func_decl
+  | StmtUnit of stmt
+
+type program = program_unit list 
 
 (* Pretty-printing functions *)
 
@@ -76,7 +79,7 @@ let string_of_uop = function
 
 (* NEW printing strings with quotes *)
 let rec string_of_expr = function
-    Literal(l) -> string_of_int l
+    IntLit(l) -> string_of_int l
   | BoolLit(true) -> "true"
   | BoolLit(false) -> "false"
   | NumLit(n) -> string_of_float n
@@ -113,7 +116,7 @@ let rec string_of_stmt = function
       "for (" ^ string_of_expr e1  ^ " ; " ^ string_of_expr e2 ^ " ; " ^
       string_of_expr e3  ^ ") " ^ string_of_stmt s
   | While(e, s) -> "while (" ^ string_of_expr e ^ ") " ^ string_of_stmt s
-  | Bind(t, i) -> string_of_vdecl (t, i)
+(*  | Bind(t, i) -> string_of_vdecl (t, i)
 
 let string_of_fdecl fdecl =
   string_of_typ fdecl.typ ^ " " ^
@@ -130,4 +133,4 @@ let string_of_topstmts topstmts =
 let string_of_program (topstmts, funcs) =
   String.concat "" (List.map string_of_fdecl funcs) ^ "\n" ^
   string_of_topstmts topstmts ^ "\n"
-
+*)

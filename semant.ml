@@ -1,6 +1,7 @@
 (* Semantic checking for the damo compiler *)
 
 open Ast
+open Sast
 
 module StringMap = Map.Make(String)
 
@@ -8,10 +9,70 @@ module StringMap = Map.Make(String)
    throws an exception if something is wrong.
 
    Check each global variable, then check each function *)
+type env_var = {v_type: Sast.t; v_expr: Sast.expr; v_name: string}
+type env_global = {sym_table: env_var StringMap.t;}
+type env_function = {env_name: string; sym_table: env_var StringMap.t; env_ret_type: Sast.t}
 
-let check (topstmts, functions) =
-  let globals = [] in
+let convert (program_list) =
+  
+  (* global scope record for all global variables *) 
+  let global_scope = StringMap.empty in
+ 
+  (*this is in case a statement calling a built in function is the first line of the program*)
+  let printing_functions = ["print" ; "print_int" ; "print_num" ; "print_bool"] in
+  let symbol_functions = ["left" ; "right" ; "operation" ; "value" ] in
+  let built_in_functions = reserved @ printing_functions @ symbol_functions in
+  let rec expr = function
+	IntLit _ -> Int
+      | BoolLit _ -> Bool
+      (* NEW an expression can be a string literal *)
+      | NumLit _ -> Num
+      | StringLit _ -> String
+      | Id s -> type_of_identifier s
+      | Binop(e1, op, e2) as e -> let t1 = expr e1 and t2 = expr e2 in
 
+      	(match op with
+              Add | Sub | Mult | Div | Mod | Exp | Log when (t1 = Int && t2 = Num )-> Num
+            | Add | Sub | Mult | Div | Mod | Exp | Log when (t1 = Num && t2 = Int) ->  Num
+            | Add | Sub | Mult | Div | Mod | Exp | Log when t1 = Int && t2 = Int -> Int
+            | Add | Sub | Mult | Div | Mod | Exp | Log when t1 = Num && t2 = Num -> Num
+            (* NEW allow symbols to be operated on with nums *)
+            | Add | Sub | Mult | Div  when t1 = Symbol && t2 = Num -> Symbol
+            | Add | Sub | Mult | Div  when t1 = Num && t2 = Symbol -> Symbol
+            (* NEW only allow for comparison of ints and nums *)
+          	| Equal | Neq when t1 = t2 && (t1 = Int || t1 = Num) -> Bool
+          	| Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
+          	| And | Or when t1 = Bool && t2 = Bool -> Bool
+                  | _ -> raise (Failure ("illegal binary operator " ^
+                        string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
+                        string_of_typ t2 ^ " in " ^ string_of_expr e))
+
+        )
+      | Unop(op, e) as ex -> let t = expr e in
+        (match op with
+           Neg when t = Int -> Int
+         | Not when t = Bool -> Bool
+         | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
+                                string_of_typ t ^ " in " ^ string_of_expr ex)))
+      | Noexpr -> Void
+      | Assign(var, e) as ex -> let lt = type_of_identifier var
+        and rt = expr e in
+        check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
+                                     " = " ^ string_of_typ rt ^ " in " ^
+                                     string_of_expr ex))
+      | Call(fname, actuals) as call -> let fd = function_decl fname in
+        if List.length actuals != List.length fd.formals then
+          raise (Failure ("expecting " ^ string_of_int
+                            (List.length fd.formals) ^ " arguments in " ^ string_of_expr call))
+        else
+          List.iter2 (fun (ft, _) e -> let et = expr e in
+                       ignore (check_assign ft et
+                                 (Failure ("illegal actual argument found " ^ string_of_typ et ^
+                                           " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
+            fd.formals actuals;
+        fd.typ
+    in
+  
   (* Raise an exception if the given list has a duplicate *)
   let report_duplicate exceptf list =
     let rec helper = function
@@ -27,39 +88,54 @@ let check (topstmts, functions) =
     | _ -> ()
   in
 
-  (* Raise an exception of the given rvalue type cannot be assigned to
-     the given lvalue type *)
-  let check_assign lvaluet rvaluet err =
-    if lvaluet == rvaluet then lvaluet
-    else raise err
+  let check_vdecl program_unit = function 
+      Ast.Decl(t,name) -> ignore(StringMap.add name t global_scope); List.iter (check_not_void (fun n -> "illegal void global " ^ n)) global_scope;
+     report_duplicate (fun n -> "duplicate global " ^ n) (List.map snd globals); Sast.Decl(t, name)
+    | Ast.InitDecl(t, n, expr) -> ignore(StringMap.add n t global_scope); List.iter (check_not_void (fun n -> "illegal void global " ^ n)) global_scope;
+     report_duplicate (fun n -> "duplicate global " ^ n) (List.map snd globals);  
+     
+      
+     
   in
 
-  (**** Checking Global Variables ****)
-
-  (*
-    We need to implement scoping now, since toplevel variable assignments
-    and declarations can occur in an arbitrary order. It's up to semantic
-    checking to see whether variable reads and function calls are allowed
-    in scope.
-   *)
-
-  (*
-  List.iter (check_not_void (fun n -> "illegal void global " ^ n)) globals;
-
-  report_duplicate (fun n -> "duplicate global " ^ n) (List.map snd globals);
-  *)
-
+  let get_type program_unit = function
+        Ast.VarUnit  -> check_vdecl program_unit
+      | Ast.FuncUnit -> check_fdecl program_unit
+      | Ast.StmtUnit -> check_stmt program_unit 
+  in
+ 
+  let check_types program_list = function
+        [] -> []
+      | head::tail -> let r = get_type head in r::check_types tail
+  in 
+  
+  (*let extract_type s_expr = match s_expr with 
+	Sast.Id(t, _)             -> t
+      | Sast.Noexpr(t)            -> t 
+      | Sast.Binop(_, t, _ ,_)    -> t
+      | Sast.IntLit(t, _)         -> t
+      | Sast.BoolLit(t, _)        -> t
+      | Sast.StringLit(t, _)      -> t
+      | Sast.NumLit(t, _)         -> t
+      | Sast.ArrID(t, _, _)       -> t
+      | Sast.Unop(t, _, _)        -> t
+      | Sast.Assign(t, _, _)      -> t
+      | Sast.Call(t, _, t, _)     -> t
+      | Sast.Indexing(t, _, _)    -> t 
+  in*)
+ 
+  let convert_type t = match t with 
+        Ast.Int     -> Sast.Int
+      | Ast.Num     -> Sast.Num
+      | Ast.String  -> Sast.String
+      | Ast.Bool    -> Sast.Bool
+      | Ast.Symbol  -> Sast.Symbol 
+      | Ast.Void    -> Sast.Void
+  in
+  
   (**** Checking Functions ****)
 
-  (* NEW list of all built in functions *)
-  let reserved = ["main"] in
-  let printing_functions = ["print" ; "print_int" ; "print_num" ; "print_bool"] in
-  let symbol_functions = ["left" ; "right" ; "operation" ; "value" ] in
-  let built_in_functions = reserved @ printing_functions @ symbol_functions in
-  
-  (* NEW create list of function names *)
-  let function_list = List.map (fun fd -> fd.fname) functions in
-
+     
   (* NEW check for prior existence of built in functions *)
   ignore (List.map (fun name -> if List.mem name function_list
     then raise (Failure ("function " ^ name ^ " may not be defined")) else ()) built_in_functions);
@@ -115,9 +191,10 @@ let check (topstmts, functions) =
 
     report_duplicate (fun n -> "duplicate local " ^ n ^ " in " ^ func.fname)
       (List.map snd func.locals);
-
+    
+    let func_scope = {env_name = func.fname; sym_table = StringMap.empty; env_ret_type = func.typ} in
     (* Type of each variable (global, formal, or local *)
-    let symbols = List.fold_left (fun m (t, n) -> StringMap.add n t m)
+    let local_vars = List.fold_left (fun m (t, n) -> StringMap.add n t m)
 	StringMap.empty (globals @ func.formals @ func.locals)
     in
         
@@ -126,57 +203,7 @@ let check (topstmts, functions) =
       with Not_found -> raise (Failure ("undeclared identifier " ^ s))
     in
     (* Return the type of an expression or throw an exception *)
-    let rec expr = function
 
-	IntLit _ -> Int
-      | BoolLit _ -> Bool
-      (* NEW an expression can be a string literal *)
-      | NumLit _ -> Num
-      | StringLit _ -> String
-      | Id s -> type_of_identifier s
-      | Binop(e1, op, e2) as e -> let t1 = expr e1 and t2 = expr e2 in
-
-      	(match op with
-              Add | Sub | Mult | Div | Mod | Exp | Log when (t1 = Int && t2 = Num )-> Num
-            | Add | Sub | Mult | Div | Mod | Exp | Log when (t1 = Num && t2 = Int) ->  Num
-            | Add | Sub | Mult | Div | Mod | Exp | Log when t1 = Int && t2 = Int -> Int
-            | Add | Sub | Mult | Div | Mod | Exp | Log when t1 = Num && t2 = Num -> Num
-            (* NEW allow symbols to be operated on with nums *)
-            | Add | Sub | Mult | Div  when t1 = Symbol && t2 = Num -> Symbol
-            | Add | Sub | Mult | Div  when t1 = Num && t2 = Symbol -> Symbol
-            (* NEW only allow for comparison of ints and nums *)
-          	| Equal | Neq when t1 = t2 && (t1 = Int || t1 = Num) -> Bool
-          	| Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
-          	| And | Or when t1 = Bool && t2 = Bool -> Bool
-                  | _ -> raise (Failure ("illegal binary operator " ^
-                        string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
-                        string_of_typ t2 ^ " in " ^ string_of_expr e))
-
-        )
-      | Unop(op, e) as ex -> let t = expr e in
-        (match op with
-           Neg when t = Int -> Int
-         | Not when t = Bool -> Bool
-         | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
-                                string_of_typ t ^ " in " ^ string_of_expr ex)))
-      | Noexpr -> Void
-      | Assign(var, e) as ex -> let lt = type_of_identifier var
-        and rt = expr e in
-        check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
-                                     " = " ^ string_of_typ rt ^ " in " ^
-                                     string_of_expr ex))
-      | Call(fname, actuals) as call -> let fd = function_decl fname in
-        if List.length actuals != List.length fd.formals then
-          raise (Failure ("expecting " ^ string_of_int
-                            (List.length fd.formals) ^ " arguments in " ^ string_of_expr call))
-        else
-          List.iter2 (fun (ft, _) e -> let et = expr e in
-                       ignore (check_assign ft et
-                                 (Failure ("illegal actual argument found " ^ string_of_typ et ^
-                                           " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
-            fd.formals actuals;
-        fd.typ
-    in
     
     let check_bool_expr e = if expr e != Bool
       then raise (Failure ("expected Boolean expression in " ^ string_of_expr e))
