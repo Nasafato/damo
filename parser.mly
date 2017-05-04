@@ -70,6 +70,7 @@ typ:
   | BOOL { Bool }
   | VOID { Void }
   | STRING { String }
+  | SYMBOL {Symbol}
   | NUM { Num }
 
 vdecl_list:
