@@ -19,7 +19,7 @@ type s_expr =
   | Binop of t * s_expr * Ast.op * s_expr
   | Unop of t * Ast.uop * s_expr
   | Assign of t * string * s_expr
-  | Call of t * string * t * s_expr list
+  | Call of t * string * s_expr list
   | Indexing of t * string * s_expr  
   | Noexpr of t
 
@@ -46,9 +46,9 @@ type s_func_decl = {
     typ : t;
     fname : string;
     formals : s_bind list; 
-    body : s_bind list * s_stmt list;
+    body : s_function_unit list;
   }
-
+ 
 type s_program_unit = 
     VarUnit of s_bind
   | FuncUnit of s_func_decl
