@@ -32,7 +32,7 @@ let convert (program_list) =
       | Sast.ArrID(t, _, _)       -> t
       | Sast.Unop(t, _, _)        -> t
       | Sast.Assign(t, _, _)      -> t
-      | Sast.Call(t, _, t, _)     -> t
+      | Sast.Call(t, _, _)        -> t
       | Sast.Indexing(t, _, _)    -> t 
   in
 
@@ -108,25 +108,30 @@ let convert (program_list) =
     | _ -> ()
   in
   
-  let check_expr_legal t e env = let e' = expr env e in if e' != t then e' else raise(Failure ("Incorrect type")) in 
+  let check_not_void_map argOne argTwo = match argTwo with 
+      Void -> raise(Failure("cannot have void variable type"))
+    | _ -> ()
+  in
+ 
+  let check_expr_legal t e env = let e' = expr env e in if extract_type(e') == t then e' else raise(Failure ("Incorrect type")) in 
 
-  let check_vdecl program_unit = function 
-      Ast.Decl(t,name) -> ignore(StringMap.add name t global_scope); List.iter (check_not_void (fun n -> "illegal void ")) global_scope; ignore(report_duplicate_map name global_scope); Sast.Decl(t, name)
-    | Ast.InitDecl(t, n, e) -> ignore(StringMap.add n t global_scope); List.iter (check_not_void (fun n -> "illegal void ")) global_scope; ignore(report_duplicate_map n global_scope); let e' = expr global_scope e in if e' == t then Sast.InitDecl(t,n,e') else raise(Failure ("incorrect type"))
-    | Ast.ArrDecl(t, n, l) -> ignore(StringMap.add n t global_scope); List.iter (check_not_void (fun n -> "illegal void ")) global_scope; ignore(report_duplicate_map n global_scope); let l' = List.map (fun a -> check_expr_legal t a env) l in Sast.ArrDecl(t, n, l')    
+  let check_vdecl = function 
+      Ast.Decl(t,name) -> ignore(StringMap.add name t global_scope); StringMap.iter (fun a1 a2 -> check_not_void_map a1 a2) global_scope; ignore(report_duplicate_map name global_scope); Sast.Decl(t, name)
+    | Ast.InitDecl(t, n, e) -> ignore(StringMap.add n t global_scope); StringMap.iter (fun a1 a2 -> check_not_void_map a1 a2) global_scope; ignore(report_duplicate_map n global_scope); let e' = expr global_scope e in if e' == t then Sast.InitDecl(t,n,e') else raise(Failure ("incorrect type"))
+    | Ast.ArrDecl(t, n, l) -> ignore(StringMap.add n t global_scope); StringMap.iter (fun a1 a2 -> check_not_void_map a1 a2) global_scope; ignore(report_duplicate_map n global_scope); let l' = List.map (fun a -> check_expr_legal t a env) l in Sast.ArrDecl(t, n, l')    
         
   in
   
-  let check_vdecl_function function_line = 
- 	Ast.Decl(t,name) -> ignore(StringMap.add name t global_scope); List.iter (check_not_void (fun n -> "illegal void ")) global_scope; ignore(report_duplicate_map name global_scope); Sast.Decl(t, name)
-    | Ast.InitDecl(t, n, e) -> ignore(StringMap.add n t global_scope); List.iter (check_not_void (fun n -> "illegal void ")) global_scope; ignore(report_duplicate_map n global_scope); let e' = expr e global_scope in if e' == t then Sast.InitDecl(t,n,e') else raise(Failure ("incorrect type"))
-    | Ast.ArrDecl(t, n, l) -> ignore(StringMap.add n t global_scope); List.iter (check_not_void (fun n -> "illegal void ")) global_scope; ignore(report_duplicate_map n global_scope); let l' = List.map (fun a -> check_expr_legal t a global_scope) l in Sast.ArrDecl(t, n, l') 
+  let check_vdecl_function function_name function_line = match function_line with  
+ 	Ast.Decl(t,name) -> let f_map = StringMap.find function_name function_map in ignore(StringMap.add name t f_map); StringMap.iter (fun a1 a2 -> check_not_void_map a1 a2) f_map; ignore(report_duplicate_map name f_map); Sast.Decl(t, name)
+    | Ast.InitDecl(t, n, e) -> let f_map = StringMap.find function_name function_map in ignore(StringMap.add n t f_map); StringMap.iter (fun a1 a2 -> check_not_void_map a1 a2) f_map; ignore(report_duplicate_map n f_map); let e' = expr e f_map in if e' == t then Sast.InitDecl(t,n,e') else raise(Failure ("incorrect type"))
+    | Ast.ArrDecl(t, n, l) -> let f_map = StringMap.find function_name function_map in ignore(StringMap.add n t f_map); StringMap.iter (fun a1 a2 -> check_not_void_map a1 a2) f_map; ignore(report_duplicate_map n f_map); let l' = List.map (fun a -> check_expr_legal t a f_map) l in Sast.ArrDecl(t, n, l') 
 		
   in
  
-  let get_function_type fd.name function_line = function
-       Ast.VarFunit -> check_vdecl_function function_line
-     | Ast.StmtFunit -> check_stmt_function function_ line 
+  let get_function_type function_name function_line = match function_line with 
+       Ast.VarFunit -> check_vdecl_function function_name function_line
+     | Ast.StmtFunit -> check_stmt_function function_name function_line 
   in
   
   let update_maps fd = 
@@ -144,7 +149,7 @@ let convert (program_list) =
 	List.iter (check_not_void (fun n -> "can't have void variable")) (List.map snd fd.formals);
         (*resolve all formals, resolve function body, return a Sast type of FuncUnit with new values*)
 	let resolve_fds = List.map (fun a -> expr (StringMap.find fd.name function_map) a) fd.formals in
-        let new_body = get_function_type fd.name fd.body in  
+        let new_body = get_function_type fd.name fd.body in 
   in
 
   let get_type program_unit = function
@@ -169,7 +174,7 @@ let convert (program_list) =
   
   (**** Checking Functions ****)
 
-     
+(*     
   (* NEW check for prior existence of built in functions *)
   ignore (List.map (fun name -> if List.mem name function_list
     then raise (Failure ("function " ^ name ^ " may not be defined")) else ()) built_in_functions);
@@ -232,7 +237,7 @@ let convert (program_list) =
 	StringMap.empty (globals @ func.formals @ func.locals)
     in
         
- 
+*) 
     let check_bool_expr e = if expr e != Bool
       then raise (Failure ("expected Boolean expression in " ^ string_of_expr e))
       else () in
@@ -262,4 +267,3 @@ let convert (program_list) =
     stmt (Block func.body)
 
   in
-  List.iter check_function functions
