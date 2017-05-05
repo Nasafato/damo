@@ -36,7 +36,7 @@ type s_stmt =
   | If of s_expr * s_stmt * s_stmt
   | For of s_expr * s_expr * s_expr * s_stmt
   | While of s_expr * s_stmt
-  | Bind of s_bind
+
 
 type s_function_unit = 
     VarFunit of s_bind

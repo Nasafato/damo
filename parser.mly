@@ -10,7 +10,7 @@ open Ast
 %token NOT AND OR
 %token ASSIGN
 %token EQ NEQ LT LEQ GT GEQ 
-%token IF ELSE FOR WHILE 
+%token IF ELSEIF ELSE FOR WHILE 
 %token INT BOOL NUM STRING SYMBOL VOID
 %token DEF RETURN COLON
 %token TRUE FALSE
@@ -99,14 +99,14 @@ stmt:
   | RETURN SEMI { Return Noexpr }
   | RETURN expr SEMI { Return $2 }
   | LBRACE stmt_list RBRACE { Block(List.rev $2) }
-  | IF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5, Block([])) }
+  | IF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5) }
   | IF LPAREN expr RPAREN stmt else_stmt    { If($3, $5, $6) }
   | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
      { For($3, $5, $7, $9) }
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
 
 else_stmt:
-  ELSEIF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5, Block([])) }
+  ELSEIF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5) }
   | ELSEIF LPAREN expr RPAREN stmt else_stmt { If($3, $5, $6) }
 
 expr_opt:

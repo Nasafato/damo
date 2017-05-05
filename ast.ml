@@ -34,7 +34,6 @@ type stmt =
   | If of expr * stmt * stmt
   | For of expr * expr * expr * stmt
   | While of expr * stmt
-  | Bind of bind
 
 type function_unit = 
     VarFunit of bind
@@ -103,7 +102,7 @@ let string_of_typ = function
   | Num -> "num"
   | Symbol -> "symbol"
 
-let string_of_vdecl (t, id) = string_of_typ t ^ " " ^ id ^ ";\n"
+(*let string_of_vdecl (t, id) = string_of_typ t ^ " " ^ id ^ ";\n"
 
 let rec string_of_stmt = function
     Block(stmts) ->
@@ -116,7 +115,7 @@ let rec string_of_stmt = function
   | For(e1, e2, e3, s) ->
       "for (" ^ string_of_expr e1  ^ " ; " ^ string_of_expr e2 ^ " ; " ^
       string_of_expr e3  ^ ") " ^ string_of_stmt s
-  | While(e, s) -> "while (" ^ string_of_expr e ^ ") " ^ string_of_stmt s
+  | While(e, s) -> "while (" ^ string_of_expr e ^ ") " ^ string_of_stmt s*)
 (*  | Bind(t, i) -> string_of_vdecl (t, i)
 
 let string_of_fdecl fdecl =
