@@ -99,14 +99,14 @@ stmt:
   | RETURN SEMI { Return Noexpr }
   | RETURN expr SEMI { Return $2 }
   | LBRACE stmt_list RBRACE { Block(List.rev $2) }
-  | IF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5) }
+  | IF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5, Block([])) }
   | IF LPAREN expr RPAREN stmt else_stmt    { If($3, $5, $6) }
   | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
      { For($3, $5, $7, $9) }
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
 
 else_stmt:
-  ELSEIF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5) }
+  ELSEIF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5, Block([])) }
   | ELSEIF LPAREN expr RPAREN stmt else_stmt { If($3, $5, $6) }
 
 expr_opt:
@@ -138,10 +138,13 @@ expr:
   | expr OR     expr { Binop($1, Or,    $3) }
   | MINUS expr %prec NEG { Unop(Neg, $2) }
   | NOT expr         { Unop(Not, $2) }
-  | ID ASSIGN expr   { Assign(Id($1), $3) }
-  | arrid ASSIGN expr { Assign($1, $3) }
+  | ID ASSIGN expr   { Assign(Idl($1), $3) }
+  | larrid ASSIGN expr { Assign($1, $3) }
   | ID LPAREN actuals_opt RPAREN { Call($1, $3) }
   | LPAREN expr RPAREN { $2 }
+
+larrid:
+  ID LBRACKET brackets RBRACKET { ArrIdl($1, List.rev $3) }
 
 arrid:
   ID LBRACKET brackets RBRACKET { ArrId($1, List.rev $3) }

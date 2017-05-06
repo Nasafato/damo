@@ -9,27 +9,30 @@ type uop = Neg | Not
 (* NEW types *)
 type typ = Int | Bool | Num | String | Symbol | Void
 
-type expr =
+type lvalue = 
+    Idl of string
+  | ArrIdl of string * expr list
+
+and expr =
     IntLit of int
   | BoolLit of bool
   | StringLit of string
   | NumLit of float
   | Id of string
-  | ArrID of string * expr list
+  | ArrId of string * expr list
   | Binop of expr * op * expr
   | Unop of uop * expr
-  | Assign of string * expr
-  | Call of string * expr list
-  | Indexing of string * expr  
+  | Assign of lvalue * expr
+  | Call of string * expr list 
   | Noexpr
 
 type bind = 
     Decl of typ * string
-  | InitDecl of typ * string * expr
   | ArrDecl of typ * string * expr list
 
 type stmt =
     Expr of expr
+  | Block of stmt list 
   | Return of expr
   | If of expr * stmt * stmt
   | For of expr * expr * expr * stmt
@@ -88,7 +91,6 @@ let rec string_of_expr = function
   | Binop(e1, o, e2) ->
       string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
   | Unop(o, e) -> string_of_uop o ^ string_of_expr e
-  | Assign(v, e) -> v ^ " = " ^ string_of_expr e
   | Call(f, el) ->
       f ^ "(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
   | Noexpr -> ""
