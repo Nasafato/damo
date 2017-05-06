@@ -174,7 +174,14 @@ let translate (program_unit_list) =
         - GET LIST OF VARFUNIT TO BE PROCESSED BY LOCAL VARS TO GET LOCALS
     *)
 
+    let rec fxn_body_decouple( f_body, decl_l, stmt_l ) = (match f_unit with 
+        VarFunit(s) :: tail -> fxn_body_decouple tail decl_l::s stmt_l
+      | StmtFunit(sf) :: tail -> fxn_body_decouple tail decl_l stmt_l::sf
+      | StmtFunit(sf) -> decl_l stmt_l::sf
+      | VarFunit(s) -> decl_l::s stmt_l
+    ) in 
 
+    locals, stmt_list = fxn_body_decouple( fdecl.s_body [] [] ) in 
 
     (* Construct the function's "locals": formal arguments and locally
        declared variables.  Allocate each on the stack, initialize their
@@ -233,13 +240,13 @@ let translate (program_unit_list) =
         ) in
         let e1' = expr builder e1
         and e2' = expr builder e2 in
-        let t1 = get_type( e1 )
-        and t2 = get_type( e2 ) in
+        let t_1 = get_type( e1 )
+        and t_2 = get_type( e2 ) in
         let binop_type_check ( t, e1, e2 ) = 
           ( match t with
             A.Int -> (e1', e2')
             A.Num -> 
-              (match t1, t2 with 
+              (match t_1, t_2 with 
                   A.Num, A.Num -> (e1', e2')
                 | A.Num, A.Int -> (e1', 
                     L.build_sitofp e2' num_t "cast" builder)
@@ -501,7 +508,7 @@ let translate (program_unit_list) =
     in
 
     (* Build the code for each statement in the function *)
-    let builder = stmt builder (A.Block fdecl.A.body) in
+    let builder = stmt builder (A.Block stmt_list) in
 
     (* Add a return if the last block falls off the end *)
     add_terminal builder (match fdecl.A.typ with
