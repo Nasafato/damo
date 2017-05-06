@@ -216,7 +216,7 @@ let convert (program_list) =
 	List.iter (fun n -> check_not_void_general n) fd.formals;
         (*resolve all formals, resolve function body, return a Sast type of FuncUnit with new values*)
 	let func_formals = List.map (fun a -> check_vdecl_function fd.fname a) fd.formals and
-        new_body = resolve_body fd.fname fd.body in let new_fdecl = {s_typ=(convert_type fd.typ),s_fname=fd.fname, s_formals=func_formals, s_body = new_body} in Sast.FuncUnit(new_fdecl) 
+        new_body = resolve_body fd.fname fd.body in let new_fdecl = {s_typ=convert_type fd.typ; s_fname=fd.fname; s_formals=func_formals; s_body = new_body} in Sast.FuncUnit(new_fdecl) 
   
   in
 
