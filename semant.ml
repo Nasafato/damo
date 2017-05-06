@@ -42,12 +42,27 @@ let convert (program_list) =
       | Sast.Call(t, _, _)        -> t
   in
  
+
+  let printing_functions = ["print" ; "print_int" ; "print_num" ; "print_bool"] in
+  let symbol_functions = ["left" ; "right" ; "operator" ; "isConstant" ] in
+  let built_in_functions = printing_functions @ symbol_functions in
+  let add_builtin fname = match fname with 
+      | "print" -> ignore(StringMap.add fname [(Ast.String, x)] function_map_formals); ignore(StringMap.add fname [(Ast.String, x)] function_map); ignore(StringMap.add fname 1 function_map_length); StringMap.add fname Ast.Void function_map_type
+      | "print_int" -> ignore(StringMap.add fname [(Ast.Int, x)] function_map_formals); ignore(StringMap.add fname [(Ast.Int, x)] function_map); ignore(StringMap.add fname 1 function_map_length); StringMap.add fname Ast.Void function_map_type
+      | "print_num" -> ignore(StringMap.add fname [(Ast.Num, x)] function_map_formals); ignore(StringMap.add fname [(Ast.Num, x)] function_map); ignore(StringMap.add fname 1 function_map_length); StringMap.add fname Ast.Void function_map_type
+      | "print_bool" -> ignore(StringMap.add fname [(Ast.Bool, x)] function_map_formals); ignore(StringMap.add fname [(Ast.Bool, x)] function_map); ignore(StringMap.add fname 1 function_map_length); StringMap.add fname Ast.Void function_map_type
+      | "left" -> ignore(StringMap.add fname [(Ast.Symbol, x)] function_map_formals); ignore(StringMap.add fname [(Ast.Symbol, x)] function_map); ignore(StringMap.add fname 1 function_map_length); StringMap.add fname Ast.Symbol function_map_type
+      | "right" -> ignore(StringMap.add fname [(Ast.Symbol, x)] function_map_formals); ignore(StringMap.add fname [(Ast.Symbol, x)] function_map); ignore(StringMap.add fname 1 function_map_length); StringMap.add fname Ast.Symbol function_map_type
+      | "operator" -> ignore(StringMap.add fname [(Ast.Symbol, x)] function_map_formals); ignore(StringMap.add fname [(Ast.Symbol, x)] function_map); ignore(StringMap.add fname 1 function_map_length); StringMap.add fname Ast.String function_map_type
+      | "isConstant" -> ignore(StringMap.add fname [(Ast.Symbol, x)] function_map_formals); ignore(StringMap.add fname [(Ast.Symbol, x)] function_map); ignore(StringMap.add fname 1 function_map_length); StringMap.add fname Ast.Bool function_map_type
+  in 
+     
   let extract_type_lvalue lvalue = match lvalue with 
         Sast.Idl(t, _)            -> t
       | Sast.ArrIdl(t, _, _)      -> t
   in 
 
-  let check_assign lvaluet rvaluet err = if lvaluet == rvaluet then lvaluet else raise err in 
+  let check_assign lvaluet rvaluet err = if lvaluet = rvaluet then lvaluet else raise err in 
   (* global scope record for all global variables *) 
   let global_scope = StringMap.empty in
   
@@ -57,19 +72,11 @@ let convert (program_list) =
   in
   
   let find_func fname =  
-      try StringMap.find fname function_map 
+      try StringMap.find fname function_map
       with Not_found -> raise (Failure ("undeclared function"))
   in 
-
-  let printing_functions = ["print" ; "print_int" ; "print_num" ; "print_bool"] in
-  let symbol_functions = ["left" ; "right" ; "operation" ; "value" ] in
-  let built_in_functions = printing_functions @ symbol_functions in
-  let check_index_type index = match index with 
-        Sast.Int -> ()
-      | _ -> raise (Failure ("must have int type as index"))
-  in 
- 
-  let rec check_expr_legal e env = let e' = expr env e in if extract_type e' == Sast.Int then e' else raise(Failure ("Incorrect type")) 
+  
+  let rec check_expr_legal e env = let e' = expr env e in if extract_type e' = Sast.Int then e' else raise(Failure ("Incorrect type")) 
   
   
   and check_lvalue env lvalue  = match lvalue with  
@@ -120,7 +127,7 @@ let convert (program_list) =
 
 
   let report_duplicate_map var env = 
-    if StringMap.mem var env == false then true else raise(Failure("duplicate found")); 
+    if StringMap.mem var env = false then true else raise(Failure("duplicate found")); 
   
   in 
   (* Raise an exception if the given list has a duplicate *)
