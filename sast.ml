@@ -1,4 +1,7 @@
-open Ast 
+type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
+          And | Or | Exp | Log | Mod
+
+type uop = Neg | Not
 
 type t = 
     Int
@@ -9,7 +12,7 @@ type t =
   | Void
 
 type lvalue = 
-    Idl of t *string
+    Idl of t * string
   | ArrIdl of t * string * s_expr list
 
 and s_expr =
@@ -19,8 +22,8 @@ and s_expr =
   | NumLit of t * float
   | Id of t * string
   | ArrId of t * string * s_expr list
-  | Binop of t * s_expr * Ast.op * s_expr
-  | Unop of t * Ast.uop * s_expr
+  | Binop of t * s_expr * op * s_expr
+  | Unop of t * uop * s_expr
   | Assign of lvalue * s_expr
   | Call of t * string * s_expr list
   | Noexpr of t
