@@ -13,13 +13,15 @@ module StringMap = Map.Make(String)
 type env_global = {sym_table: env_var StringMap.t;}
 type env_function = {env_name: string; sym_table: env_var StringMap.t; env_ret_type: Sast.t}
 *)
-let convert (program_list) =
-  (*map for function name and list of variables, including formals and locals*)
-  let function_map = StringMap.empty in 
+let function_map = Hashtbl.create 10;;
   (*maps for function name and type info, such as return type and length of paramter list-type checking of actuals done at runtime*)
-  let function_map_type = StringMap.empty in 
-  let function_map_length = StringMap.empty in 
-  let function_map_formals = StringMap.empty in 
+let function_map_type = Hashtbl.create 10;;
+let function_map_length = Hashtbl.create 10;; 
+let function_map_formals = Hashtbl.create 10;;
+let global_scope = Hashtbl.create 15;;
+
+let convert program_list =
+  (*map for function name and list of variables, including formals and locals*)
   let convert_type = function 
         Ast.Int    -> Sast.Int
       | Ast.Bool   -> Sast.Bool
@@ -41,22 +43,73 @@ let convert (program_list) =
       | Sast.Unop(t, _, _)        -> t 
       | Sast.Call(t, _, _)        -> t
   in
- 
+  
+  Hashtbl.add function_map_formals "print" [(Ast.String, "x")];
+  Hashtbl.add function_map_formals "print_int" [(Ast.Int, "x")];
+  Hashtbl.add function_map_formals "print_bool" [(Ast.Bool, "x")];
+  Hashtbl.add function_map_formals "print_num" [(Ast.Num, "x")];
+  Hashtbl.add function_map_formals "left" [(Ast.Symbol, "x")];
+  Hashtbl.add function_map_formals "right" [(Ast.Symbol, "x")];
+  Hashtbl.add function_map_formals "operator" [(Ast.Symbol, "x")];
+  Hashtbl.add function_map_formals "isConstant" [(Ast.Symbol, "x")];
 
-  let printing_functions = ["print" ; "print_int" ; "print_num" ; "print_bool"] in
+  Hashtbl.add function_map_length "print" 1; 
+  Hashtbl.add function_map_length "print_int" 1;
+  Hashtbl.add function_map_length "print_bool" 1;
+  Hashtbl.add function_map_length "print_num" 1;
+  Hashtbl.add function_map_length "left" 1;
+  Hashtbl.add function_map_length "right" 1;
+  Hashtbl.add function_map_length "operator" 1;
+  Hashtbl.add function_map_length "isConstant" 1;
+   
+  Hashtbl.add function_map_type "print" Ast.Void;
+  Hashtbl.add function_map_type "print_int" Ast.Void;
+  Hashtbl.add function_map_type "print_bool" Ast.Void;
+  Hashtbl.add function_map_type "print_num" Ast.Void;
+  Hashtbl.add function_map_type "left" Ast.Symbol;
+  Hashtbl.add function_map_type "right" Ast.Symbol;
+  Hashtbl.add function_map_type "operator" Ast.String;
+  Hashtbl.add function_map_type "isConstant" Ast.Bool;
+ 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.String; Hashtbl.add function_map "print" new_map; 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Int; Hashtbl.add function_map "print_int" new_map; 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Bool; Hashtbl.add function_map "print_bool" new_map; 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Num; Hashtbl.add function_map "print_num" new_map; 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Symbol; Hashtbl.add function_map "left" new_map; 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Symbol; Hashtbl.add function_map "right" new_map; 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.String; Hashtbl.add function_map "operator" new_map; 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Bool; Hashtbl.add function_map "isConstant" new_map; 
+
+(*  let printing_functions = ["print" ; "print_int" ; "print_num" ; "print_bool"] in
   let symbol_functions = ["left" ; "right" ; "operator" ; "isConstant" ] in
   let built_in_functions = printing_functions @ symbol_functions in
   let add_builtin fname = match fname with 
-      | "print" -> ignore(StringMap.add fname [(Ast.String, x)] function_map_formals); ignore(StringMap.add fname [(Ast.String, x)] function_map); ignore(StringMap.add fname 1 function_map_length); StringMap.add fname Ast.Void function_map_type
-      | "print_int" -> ignore(StringMap.add fname [(Ast.Int, x)] function_map_formals); ignore(StringMap.add fname [(Ast.Int, x)] function_map); ignore(StringMap.add fname 1 function_map_length); StringMap.add fname Ast.Void function_map_type
-      | "print_num" -> ignore(StringMap.add fname [(Ast.Num, x)] function_map_formals); ignore(StringMap.add fname [(Ast.Num, x)] function_map); ignore(StringMap.add fname 1 function_map_length); StringMap.add fname Ast.Void function_map_type
-      | "print_bool" -> ignore(StringMap.add fname [(Ast.Bool, x)] function_map_formals); ignore(StringMap.add fname [(Ast.Bool, x)] function_map); ignore(StringMap.add fname 1 function_map_length); StringMap.add fname Ast.Void function_map_type
-      | "left" -> ignore(StringMap.add fname [(Ast.Symbol, x)] function_map_formals); ignore(StringMap.add fname [(Ast.Symbol, x)] function_map); ignore(StringMap.add fname 1 function_map_length); StringMap.add fname Ast.Symbol function_map_type
-      | "right" -> ignore(StringMap.add fname [(Ast.Symbol, x)] function_map_formals); ignore(StringMap.add fname [(Ast.Symbol, x)] function_map); ignore(StringMap.add fname 1 function_map_length); StringMap.add fname Ast.Symbol function_map_type
-      | "operator" -> ignore(StringMap.add fname [(Ast.Symbol, x)] function_map_formals); ignore(StringMap.add fname [(Ast.Symbol, x)] function_map); ignore(StringMap.add fname 1 function_map_length); StringMap.add fname Ast.String function_map_type
-      | "isConstant" -> ignore(StringMap.add fname [(Ast.Symbol, x)] function_map_formals); ignore(StringMap.add fname [(Ast.Symbol, x)] function_map); ignore(StringMap.add fname 1 function_map_length); StringMap.add fname Ast.Bool function_map_type
-  in 
-     
+        "print" -> Hashtbl.add function_map_formals fname [(Ast.String, "x")]; 
+		   let new_map = Hashtbl.create 10;
+		   Hashtbl.add new_map "x" Ast.String;
+		   Hashtbl.add function_map fname new_map; 
+		   Hashtbl.add function_map_length fname 1; 
+		   Hashtbl.add function_map_type fname (Ast.Void)
+      | "print_int" -> 
+		ignore(Hashtbl.add function_map_formals fname [(Ast.Int, "x")]); 
+		ignore(let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Int) in Hashtbl.add function_map fname new_map; 
+		ignore(Hashtbl.add function_map_length fname 1); 
+		Hashtbl.add function_map_type fname (Ast.Void)
+
+      | "print_num" -> ignore(Hashtbl.add function_map_formals fname [(Ast.Num, "x")]); ignore(let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Num) in Hashtbl.add function_map fname new_map; ignore(Hashtbl.add function_map_length fname 1); Hashtbl.add function_map_type fname (Ast.Void)
+
+      | "print_bool" -> ignore(Hashtbl.add function_map_formals fname [(Ast.Bool, "x")]); ignore(let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Bool) in Hashtbl.add function_map fname new_map; ignore(Hashtbl.add function_map_length fname 1); Hashtbl.add function_map_type fname (Ast.Void)
+
+      | "left" -> ignore(Hashtbl.add function_map_formals fname [(Ast.Symbol, "x")]); ignore(let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Symbol) in Hashtbl.add function_map fname new_map; ignore(Hashtbl.add function_map_length fname 1); Hashtbl.add function_map_type fname (Ast.Symbol) 
+
+      | "right" -> ignore(Hashtbl.add function_map_formals fname [(Ast.Symbol, "x")]); ignore(let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Symbol) in Hashtbl.add function_map fname new_map; ignore(Hashtbl.add function_map_length fname 1); Hashtbl.add function_map_type fname (Ast.Symbol)
+
+      | "operator" -> ignore(Hashtbl.add function_map_formals fname [(Ast.Symbol, "x")]); ignore(let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Symbol) in Hashtbl.add function_map fname new_map; ignore(Hashtbl.add function_map_length fname 1); Hashtbl.add function_map_type fname (Ast.String)
+
+      | "isConstant" -> ignore(Hashtbl.add function_map_formals fname [(Ast.Symbol, "x")]); ignore(let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Symbol) in Hashtbl.add function_map fname new_map; ignore(Hashtbl.add function_map_length fname 1); Hashtbl.add function_map_type fname (Ast.Bool)
+
+  in List.iter (fun x -> add_builtin x) built_in_functions in 
+  *)   
   let extract_type_lvalue lvalue = match lvalue with 
         Sast.Idl(t, _)            -> t
       | Sast.ArrIdl(t, _, _)      -> t
@@ -64,15 +117,14 @@ let convert (program_list) =
 
   let check_assign lvaluet rvaluet err = if lvaluet = rvaluet then lvaluet else raise err in 
   (* global scope record for all global variables *) 
-  let global_scope = StringMap.empty in
-  
+   
   let type_of_identifier s env =
-      try StringMap.find s env
+      try Hashtbl.find env s
       with Not_found -> raise (Failure ("undeclared identifier " ^ s))
   in
   
   let find_func fname =  
-      try StringMap.find fname function_map
+      try Hashtbl.find function_map fname
       with Not_found -> raise (Failure ("undeclared function"))
   in 
   
@@ -113,21 +165,21 @@ let convert (program_list) =
          | _ -> raise (Failure ("illegal unary operator ")))
       | Ast.Noexpr -> Sast.Noexpr(Sast.Void)
       | Ast.Assign(lvalue, e) -> let new_lvalue = check_lvalue env lvalue in let lt = extract_type_lvalue new_lvalue and rt = extract_type (expr env e) in ignore(check_assign lt rt (Failure ("illegal assignment "))); Sast.Assign(new_lvalue, expr env e)
-      | Ast.Call(fname, actuals) -> ignore(find_func fname); if List.length actuals != StringMap.find fname function_map_length then
+      | Ast.Call(fname, actuals) -> ignore(find_func fname); if List.length actuals != Hashtbl.find function_map_length fname then
           raise (Failure ("incorrect number of arguments"))
         else 
 	  let new_actuals = List.map (fun e -> expr env e) actuals in
           List.iter2 (fun (ft, _) e -> let et = extract_type e in
-                       ignore (check_assign ft et
+                       ignore (check_assign (convert_type ft) et
                                  (Failure ("illegal actual argument found, wrong type"))))
-            (StringMap.find fname function_map_formals) new_actuals;
-        Sast.Call(convert_type (StringMap.find fname function_map_type), fname, new_actuals)
+            (Hashtbl.find function_map_formals fname) new_actuals;
+        Sast.Call(convert_type (Hashtbl.find function_map_type fname), fname, new_actuals)
     
   in 
 
 
   let report_duplicate_map var env = 
-    if StringMap.mem var env = false then true else raise(Failure("duplicate found")); 
+    if Hashtbl.mem env var = false then true else raise(Failure("duplicate found")); 
   
   in 
   (* Raise an exception if the given list has a duplicate *)
@@ -152,14 +204,14 @@ let convert (program_list) =
   in
  
     let check_vdecl = function 
-      Ast.Decl(t,name) ->  ignore(report_duplicate_map name global_scope); ignore(StringMap.add name t global_scope); StringMap.iter (fun a1 a2 -> check_not_void_map a1 a2) global_scope; Sast.Decl(convert_type t, name)
-    | Ast.ArrDecl(t, n, l) -> ignore(report_duplicate_map n global_scope); ignore(StringMap.add n t global_scope); StringMap.iter (fun a1 a2 -> check_not_void_map a1 a2) global_scope; List.iter (fun a -> ignore(check_expr_legal a global_scope)) l; let l' = List.map (fun a -> expr global_scope a ) l in Sast.ArrDecl(convert_type t, n, l')    
+      Ast.Decl(t,name) ->  ignore(report_duplicate_map name global_scope); ignore(Hashtbl.add global_scope name t); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) global_scope; Sast.Decl(convert_type t, name)
+    | Ast.ArrDecl(t, n, l) -> ignore(report_duplicate_map n global_scope); ignore(Hashtbl.add global_scope n t); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) global_scope; List.iter (fun a -> ignore(check_expr_legal a global_scope)) l; let l' = List.map (fun a -> expr global_scope a ) l in Sast.ArrDecl(convert_type t, n, l')    
         
   in
   
   let check_vdecl_function function_name function_line = match function_line with  
- 	Ast.Decl(t,name) -> let f_map = StringMap.find function_name function_map in ignore(report_duplicate_map name f_map); ignore(report_duplicate_map name global_scope); ignore(StringMap.add name t f_map); StringMap.iter (fun a1 a2 -> check_not_void_map a1 a2) f_map; Sast.Decl(convert_type t, name)
-    | Ast.ArrDecl(t, n, l) -> let f_map = StringMap.find function_name function_map in ignore(report_duplicate_map n f_map); ignore(report_duplicate_map n global_scope); ignore(StringMap.add n t f_map); StringMap.iter (fun a1 a2 -> check_not_void_map a1 a2) f_map; List.iter (fun a -> ignore(check_expr_legal a f_map)) l; let l' = List.map (fun a -> expr f_map a) l in Sast.ArrDecl(convert_type t, n, l') 
+ 	Ast.Decl(t,name) -> let f_map = Hashtbl.find function_map function_name in ignore(report_duplicate_map name f_map); ignore(report_duplicate_map name global_scope); ignore(Hashtbl.add f_map name t); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) f_map; Sast.Decl(convert_type t, name)
+    | Ast.ArrDecl(t, n, l) -> let f_map = Hashtbl.find function_map function_name in ignore(report_duplicate_map n f_map); ignore(report_duplicate_map n global_scope); ignore(Hashtbl.add f_map n t); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) f_map; List.iter (fun a -> ignore(check_expr_legal a f_map)) l; let l' = List.map (fun a -> expr f_map a) l in Sast.ArrDecl(convert_type t, n, l') 
 		
   in
   
@@ -171,33 +223,40 @@ let convert (program_list) =
   let rec stmt env fname s = match s with 
         Ast.Expr(e) -> Sast.Expr(expr env e)
       | Ast.Block(sl) -> let sl' = List.map (fun a -> stmt env fname a) sl in Sast.Block(sl')
-      | Ast.Return(e) -> if fname <> "" then raise(Failure("can't have return type outside of function")) else let t = extract_type (expr env e) in if t = convert_type (StringMap.find fname function_map_type) then Sast.Return(expr env e) else raise (Failure ("incorrect return type"))
+      | Ast.Return(e) -> if fname <> "" then raise(Failure("can't have return type outside of function")) else let t = extract_type (expr env e) in if t = convert_type (Hashtbl.find function_map_type fname) then Sast.Return(expr env e) else raise (Failure ("incorrect return type"))
       | Ast.If(p, b1, b2) -> check_bool_expr env p; Sast.If(expr env p, stmt env fname b1, stmt env fname b2)
       | Ast.For(e1, e2, e3, st) -> check_bool_expr env e2; Sast.For(expr env e1, expr env e2, expr env e3, stmt env fname st)
       | Ast.While(p, s) -> check_bool_expr env p; Sast.While(expr env p, stmt env fname s)
    
   in
   let check_stmt function_name program_unit = 
-	if function_name <> "" then stmt global_scope "" program_unit else stmt (StringMap.find function_name function_map) function_name program_unit
+	if function_name <> "" then stmt global_scope "" program_unit else stmt (Hashtbl.find function_map function_name) function_name program_unit
 
   in
  
   let get_function_type function_name function_line = match function_line with 
-       Ast.VarFunit(s) -> Sast.VarFunit(check_vdecl_function function_name s)
-     | Ast.StmtFunit(st) -> Sast.StmtFunit(check_stmt function_name st)
+       Ast.VarUnit(s) -> Sast.VarUnit(check_vdecl_function function_name s)
+     | Ast.StmtUnit(st) -> Sast.StmtUnit(check_stmt function_name st)
+     | _ -> raise (Failure("func decl in function not defined"))
   in
   
   let add_formals formal fname = match formal with 
-        Ast.Decl(t, n) -> let f_map = StringMap.find fname function_map in StringMap.add n t f_map
-      | Ast.ArrDecl(t, n, el) -> let f_map = StringMap.find fname function_map in List.iter (fun a -> ignore(check_expr_legal a f_map)) el; StringMap.add n t f_map
+        Ast.Decl(t, n) -> let f_map = Hashtbl.find function_map fname in Hashtbl.add f_map n t 
+      | Ast.ArrDecl(t, n, el) -> let f_map = Hashtbl.find function_map fname in List.iter (fun a -> ignore(check_expr_legal a f_map)) el; Hashtbl.add f_map n t 
   in
- 
+  
+  let add_hash x = match x with 
+	Ast.Decl(t, n) -> (t, n)
+      | Ast.ArrDecl(t, n, el) -> (t, n)
+  in 
+  
   let update_maps fd =  
-	ignore(StringMap.add fd.fname fd.typ function_map_type);
-	ignore(StringMap.add fd.fname fd.formals function_map_formals);
-	ignore(StringMap.add fd.fname StringMap.empty function_map);
+	ignore(Hashtbl.add function_map_type fd.fname fd.typ);
+	(*ignore(Hashtbl.add function_map_formals fd.fname fd.formals;*)
+	let map = List.map (fun x -> add_hash x) fd.formals in Hashtbl.add function_map_formals fd.fname map;  
+	ignore(Hashtbl.add function_map fd.fname (Hashtbl.create 20));
         (*List.iter (fun n -> ignore(add_formals n fd.fname)) fd.formals;*)
-	StringMap.add fd.fname (List.length fd.formals) function_map_length
+	Hashtbl.add function_map_length fd.fname (List.length fd.formals) 
   in
   
   let extract_name formal = match formal with 
@@ -217,7 +276,7 @@ let convert (program_list) =
   in 
 
   let check_fdecl fd = 
-	ignore(if StringMap.mem fd.fname function_map = false then update_maps fd else raise(Failure("duplicate found"))); 
+	ignore(if Hashtbl.mem function_map fd.fname = false then update_maps fd else raise(Failure("duplicate found"))); 
 
 	report_duplicate (fun n -> "duplicate formal") (List.map (fun x -> extract_name x) fd.formals); 
 	List.iter (fun n -> check_not_void_general n) fd.formals;
@@ -227,17 +286,17 @@ let convert (program_list) =
   
   in
 
-  let get_type program_unit = function
+  let get_type = function
         Ast.VarUnit(s)  -> Sast.VarUnit(check_vdecl s)
       | Ast.FuncUnit(fd) -> check_fdecl fd
       | Ast.StmtUnit(st) -> Sast.StmtUnit(check_stmt "" st)
   in
  
-  let rec check_types program_list = match program_list with 
+  List.map get_type program_list; print_f("%s" 
+  (*let rec check_types program_list = match program_list with 
         [] -> []
       | head::tail -> let r = get_type head in r::(check_types tail)
   in 
  
-  check_types program_list 
-   
+  check_types program_list *)
 

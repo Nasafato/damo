@@ -1,7 +1,4 @@
-type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
-          And | Or | Exp | Log | Mod
-
-type uop = Neg | Not
+module AST = Ast
 
 type t = 
     Int
@@ -22,8 +19,8 @@ and s_expr =
   | NumLit of t * float
   | Id of t * string
   | ArrId of t * string * s_expr list
-  | Binop of t * s_expr * op * s_expr
-  | Unop of t * uop * s_expr
+  | Binop of t * s_expr * AST.op * s_expr
+  | Unop of t * AST.uop * s_expr
   | Assign of lvalue * s_expr
   | Call of t * string * s_expr list
   | Noexpr of t
@@ -43,21 +40,21 @@ type s_stmt =
   | While of s_expr * s_stmt
 
 
-type s_function_unit = 
+(*type s_function_unit = 
     VarFunit of s_bind
   | StmtFunit of s_stmt
- 
+*) 
 type s_func_decl = {
     s_typ : t;
     s_fname : string;
     s_formals : s_bind list; 
-    s_body : s_function_unit list;
+    s_body : s_program_sequence list;
   }
  
-type s_program_unit = 
+and s_program_sequence = 
     VarUnit of s_bind
   | FuncUnit of s_func_decl
   | StmtUnit of s_stmt
 
-type s_program = s_program_unit list 
+type s_program = s_program_sequence list 
 

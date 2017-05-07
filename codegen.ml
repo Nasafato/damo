@@ -92,7 +92,7 @@ let translate (program_unit_list) =
     A.s_typ = A.Int;
     A.s_fname = "main";
     A.s_formals = [];
-    A.s_body = List.map (fun x -> A.StmtFunit(x)) topstmts; (*filtered_main_stmts;*)
+    A.s_body = List.map (fun x -> A.StmtUnit(x)) topstmts; (*filtered_main_stmts;*)
   } in
 
   (* Now build up global variables by parsing the list of globals
@@ -180,8 +180,8 @@ let translate (program_unit_list) =
 
     let rec fxn_body_decouple f_body decl_l stmt_l  = (match f_body with
         [] -> (decl_l, stmt_l)
-      | A.VarFunit(s) :: tail -> fxn_body_decouple tail (decl_l@[s]) stmt_l
-      | A.StmtFunit(sf) :: tail -> fxn_body_decouple tail decl_l (stmt_l@[sf])
+      | A.VarUnit(s) :: tail -> fxn_body_decouple tail (decl_l@[s]) stmt_l
+      | A.StmtUnit(sf) :: tail -> fxn_body_decouple tail decl_l (stmt_l@[sf])
     ) 
     in 
 
@@ -327,7 +327,7 @@ let translate (program_unit_list) =
         *)
 
         (* Exp and Log are run time functions because they are without llvm equivalents *)
-        if op = A.Exp then 
+        if op = AST.Exp then 
         (* For exp functions, if num just call the exp function, else cast int to num
         then build exp funtion then cast back to int *)
             let exp_types = (match t with
@@ -339,7 +339,7 @@ let translate (program_unit_list) =
                L.build_fptosi pow_cast i32_t "cast" builder
             | _ -> raise( NotImplemented )
             ) in exp_types
-        else if op = A.Log then
+        else if op = AST.Log then
         (* For log functions, if num, then get log_e of the num, then log_e of the base
         then divide them using llvm divide fxn
         for int, first convert, then do the above, then convert back *)
@@ -359,36 +359,36 @@ let translate (program_unit_list) =
         else
         let int_bop op = 
           (match op with
-             A.Add     -> L.build_add
-           | A.Sub     -> L.build_sub
-           | A.Mult    -> L.build_mul
-           | A.Div     -> L.build_sdiv
-           | A.And     -> L.build_and
-           | A.Or      -> L.build_or
-           | A.Mod     -> L.build_srem
-           | A.Equal   -> L.build_icmp L.Icmp.Eq
-           | A.Neq     -> L.build_icmp L.Icmp.Ne
-           | A.Less    -> L.build_icmp L.Icmp.Slt
-           | A.Leq     -> L.build_icmp L.Icmp.Sle
-           | A.Greater -> L.build_icmp L.Icmp.Sgt
-           | A.Geq     -> L.build_icmp L.Icmp.Sge
+             AST.Add     -> L.build_add
+           | AST.Sub     -> L.build_sub
+           | AST.Mult    -> L.build_mul
+           | AST.Div     -> L.build_sdiv
+           | AST.And     -> L.build_and
+           | AST.Or      -> L.build_or
+           | AST.Mod     -> L.build_srem
+           | AST.Equal   -> L.build_icmp L.Icmp.Eq
+           | AST.Neq     -> L.build_icmp L.Icmp.Ne
+           | AST.Less    -> L.build_icmp L.Icmp.Slt
+           | AST.Leq     -> L.build_icmp L.Icmp.Sle
+           | AST.Greater -> L.build_icmp L.Icmp.Sgt
+           | AST.Geq     -> L.build_icmp L.Icmp.Sge
            | _ -> raise( IllegalType )
           ) e1_new' e2_new' "tmp" builder in
         let num_bop op = 
           (match op with
-             A.Add     -> L.build_fadd
-           | A.Sub     -> L.build_fsub
-           | A.Mult    -> L.build_fmul
-           | A.Div     -> L.build_fdiv
-           | A.And     -> L.build_and
-           | A.Mod     -> L.build_frem
-           | A.Or      -> L.build_or
-           | A.Equal   -> L.build_icmp L.Icmp.Eq
-           | A.Neq     -> L.build_icmp L.Icmp.Ne
-           | A.Less    -> L.build_icmp L.Icmp.Slt
-           | A.Leq     -> L.build_icmp L.Icmp.Sle
-           | A.Greater -> L.build_icmp L.Icmp.Sgt
-           | A.Geq     -> L.build_icmp L.Icmp.Sge
+             AST.Add     -> L.build_fadd
+           | AST.Sub     -> L.build_fsub
+           | AST.Mult    -> L.build_fmul
+           | AST.Div     -> L.build_fdiv
+           | AST.And     -> L.build_and
+           | AST.Mod     -> L.build_frem
+           | AST.Or      -> L.build_or
+           | AST.Equal   -> L.build_icmp L.Icmp.Eq
+           | AST.Neq     -> L.build_icmp L.Icmp.Ne
+           | AST.Less    -> L.build_icmp L.Icmp.Slt
+           | AST.Leq     -> L.build_icmp L.Icmp.Sle
+           | AST.Greater -> L.build_icmp L.Icmp.Sgt
+           | AST.Geq     -> L.build_icmp L.Icmp.Sge
            | _ -> raise( IllegalType )
           ) e1_new' e2_new' "tmp" builder in 
 
@@ -422,15 +422,15 @@ let translate (program_unit_list) =
           | _-> ignore( print_string "build op exception"); num_bop op
        
   	in 
-	(*what the fuck is t*) 
-        (build_ops_with_types t) e1_new' e2_new'
+
+        (build_ops_with_types t) (*e1_new' e2_new'*)
       (* end building bin_ops*)
 
       | A.Unop(t, op, e) ->
         let e' = expr builder e in
         (match op with
-           A.Neg     -> L.build_neg
-         | A.Not     -> L.build_not) e' "tmp" builder
+           AST.Neg     -> L.build_neg
+         | AST.Not     -> L.build_not) e' "tmp" builder
       | A.Assign (A.Idl(t, s), e) -> let e' = expr builder e in ignore( let (s_v, _) = (lookup s) in
                                                               L.build_store e' s_v builder); e'
       | A.Assign (A.ArrIdl(t, s, el), e) -> let e' = expr builder e in ignore( let (s_v, _) = (lookup s) in
@@ -450,7 +450,7 @@ let translate (program_unit_list) =
       | A.Call (t, f, act) ->
         let (fdef, fdecl) = StringMap.find f function_decls in
         let actuals = List.rev (List.map (expr builder) (List.rev act)) in
-        let result = (match fdecl.A.typ with A.Void -> ""
+        let result = (match fdecl.A.s_typ with A.Void -> ""
                                            | _ -> f ^ "_result") in
         L.build_call fdef (Array.of_list actuals) result builder
    in 
@@ -467,7 +467,7 @@ let translate (program_unit_list) =
     let rec stmt builder = function
         A.Block(sl) -> List.fold_left stmt builder sl
       | A.Expr(e) -> ignore (expr builder e); builder
-      | A.Return(e) -> ignore (match fdecl.A.typ with
+      | A.Return(e) -> ignore (match fdecl.A.s_typ with
             A.Void -> L.build_ret_void builder
           | _ -> L.build_ret (expr builder e) builder); builder
       | A.If (predicate, then_stmt, else_stmt) ->
@@ -521,9 +521,9 @@ let translate (program_unit_list) =
     in 
     (* Build the code for each statement in the function *)
     let builder = stmt builder (A.Block stmt_list) in 
-    add_terminal builder  = match fdecl.A.s_typ with
+    add_terminal builder (match fdecl.A.s_typ with
           A.Void -> L.build_ret_void
-        | t -> L.build_ret (L.const_int (ltype_of_typ t) 0)
+        | t -> L.build_ret (L.const_int (ltype_of_typ t) 0))
   in 
   
   List.iter build_function_body functions; the_module

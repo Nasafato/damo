@@ -46,11 +46,11 @@ program:
 program_sequence:
   /* nothing */ { [] }
   | program_sequence vdecl { $2 @ $1 }
-  | program_sequence fdecl { $2 :: $1 }
-  | program_sequence stmt { $2 :: $1 }
+  | program_sequence fdecl { FuncUnit($2) :: $1 }
+  | program_sequence stmt { StmtUnit($2) :: $1 }
 
 fdecl:
-   DEF ID LPAREN formals_opt RPAREN COLON typ LBRACE function_sequence RBRACE
+   DEF ID LPAREN formals_opt RPAREN COLON typ LBRACE program_sequence RBRACE
     { 
       { 
         typ = $7;
@@ -65,13 +65,14 @@ formals_opt:
   | formal_list   { List.rev $1 }
 
 formal_list:
-    typ ID                   { [($1,$2)] }
-  | formal_list COMMA typ ID { ($3,$4) :: $1 }
+    typ ID                   { [Decl($1,$2)] }
+  | formal_list COMMA typ ID { Decl($3,$4) :: $1 }
 
-function_sequence:
-  /* nothing */ { [] }
+/*function_sequence:
+   nothing  { [] }
   | function_sequence vdecl { $2 @ $1 }
-  | function_sequence stmt { $2 :: $1 }
+  | function_sequence stmt { StmtFunit($2) :: $1 }
+*/
 
 typ:
     INT { Int }
@@ -82,12 +83,12 @@ typ:
   | VOID { Void }
 
 vdecl:
-    typ ID SEMI { [Decl($1, $2)] }
-  | typ ID ASSIGN expr SEMI { [Assign(Id($2), $4) ; Decl($1, $2)] }
-  | typ ID LBRACKET brackets RBRACKET SEMI { [ArrDecl($1, $2, List.rev $4)] }
+    typ ID SEMI { [VarUnit(Decl($1, $2))] }
+  | typ ID ASSIGN expr SEMI { [StmtUnit(Expr(Assign(Idl($2), $4))) ; VarUnit(Decl($1, $2))] }
+  | typ ID LBRACKET brackets RBRACKET SEMI { [VarUnit(ArrDecl($1, $2, List.rev $4))] }
 
 brackets:
-    expr { $1 }
+    expr { [$1] }
   | brackets RBRACKET LBRACKET expr { $4 :: $1 } 
 
 stmt_list:

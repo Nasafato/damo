@@ -38,23 +38,24 @@ type stmt =
   | For of expr * expr * expr * stmt
   | While of expr * stmt
 
-type function_unit = 
+(*type function_unit = 
     VarFunit of bind
   | StmtFunit of stmt
+*)
 
 type func_decl = {
     typ : typ;
     fname : string;
     formals : bind list; 
-    body : function_unit list;
+    body : program_sequence list;
   }
 
-type program_unit = 
+and program_sequence = 
     VarUnit of bind
   | FuncUnit of func_decl
   | StmtUnit of stmt
 
-type program = program_unit list 
+type program = program_sequence list 
 
 (* Pretty-printing functions *)
 
