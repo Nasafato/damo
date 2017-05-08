@@ -108,27 +108,15 @@ let translate (program_unit_list) =
                     StringMap.add s ((L.define_global s init the_module),t) m
                  | A.Num -> let init = L.const_float (ltype_of_typ t) 0.0 in
                     StringMap.add s ((L.define_global s init the_module),t) m
-                 | A.String -> let init = L.const_stringz (context) "" in
+                 | A.String -> let init = L.const_pointer_null (ltype_of_typ t) in
                     StringMap.add s ((L.define_global s init the_module),t) m
                  | A.Bool -> let init = L.const_int (ltype_of_typ t) 0 in
                     StringMap.add s ((L.define_global s init the_module),t) m
+                 | A.Symbol -> let init = L.const_pointer_null (symbol_t) in 
+                    StringMap.add s ((L.define_global s init the_module), t) m
                 (*HOLY SHIT THIS NEEDS TO BE CHANGED, SYMBOLS ARE NOT INTS*)
                  | _ -> let init = L.const_int (ltype_of_typ t) 0 in
                     StringMap.add s ((L.define_global s init the_module),t) m)
-        (*| A.InitDecl( t, s, expr ) -> 
-              (match expr with
-                  A.IntLit(t, i) -> let init = L.const_int (ltype_of_typ t) i in
-                    StringMap.add s (L.define_global s init the_module) m
-                | A.NumLit(t, b) -> let init = L.const_float (ltype_of_typ t) b in
-                    StringMap.add s (L.define_global s init the_module) m
-                | A.StringLit(t, strr) -> let init = L.const_stringz (ltype_of_typ t) strr in
-                    StringMap.add s (L.define_global s init the_module) m
-                | A.BoolLit(t, bl) -> let init = L.const_int (ltype_of_typ t) bl in
-                    StringMap.add s (L.define_global s init the_module) m
-                (*HOLY SHIT THIS NEEDS TO BE CHANGED, SYMBOLS ARE NOT INTSSS*)
-                | _ -> let init = L.const_int (ltype_of_typ t) i in
-                    StringMap.add s (L.define_global s init the_module) m)
-        *)      
         | _ -> raise(Failure("Illegal Type"))
       )
   in List.fold_left global_var StringMap.empty gvars in 
@@ -142,7 +130,10 @@ let translate (program_unit_list) =
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
 
-
+  let const_symbol_malloc = Llvm.declare_function "createConstSymbol" 
+            ( Llvm.function_type symbol_t [| num_t |] ) the_module in
+  let value_symbol = Llvm.declare_function "value" 
+            ( Llvm.function_type num_t [| symbol_t |] ) the_module in
   let pwr_fxn_num = Llvm.declare_function "pow" ( Llvm.function_type num_t [| num_t; num_t |] ) the_module in
   let log_fxn_num = Llvm.declare_function "log" ( Llvm.function_type num_t [|  num_t |] ) the_module in
   (* Declare the built-in printbig() function *)
@@ -221,6 +212,22 @@ let translate (program_unit_list) =
       with Not_found -> try Hashtbl.find init_hash n
       with Not_found -> raise (Failure ("not defined yet")) 
     in
+      let get_type node = (match node with
+              A.IntLit (t , _) -> t
+            | A.BoolLit (t , _) -> t
+            | A.StringLit (t ,_) -> t
+            | A.NumLit (t,_ ) -> t 
+            | A.Id (t, _) -> t
+            | A.ArrId (t, _, _) -> t
+            | A.Binop (t, _, _, _) -> t
+            | A.Unop (t, _, _) -> t
+            | A.Assign (lvalue, _) -> (match lvalue with 
+               A.Idl(t, n) -> t
+              | A.ArrIdl(t, n, el) -> t)  
+            | A.Call (t, _ , _) -> t
+            (*| A.Indexing (t, _, _) -> t*)
+            | A.Noexpr (t) -> t
+        ) in
     (* Construct code for an expression; return its value *)
     let rec expr builder = function
         A.IntLit(t, i) -> L.const_int i32_t i 
@@ -236,23 +243,6 @@ let translate (program_unit_list) =
 		L.build_load (L.build_gep pointer [| e' |] "tmp" builder) "val" builder
       *)		  
       | A.Binop (t, e1, op, e2) ->
-
-        let get_type node = (match node with
-              A.IntLit (t , _) -> t
-            | A.BoolLit (t , _) -> t
-            | A.StringLit (t ,_) -> t
-            | A.NumLit (t,_ ) -> t 
-            | A.Id (t, _) -> t
-            | A.ArrId (t, _, _) -> t
-            | A.Binop (t, _, _, _) -> t
-            | A.Unop (t, _, _) -> t
-            | A.Assign (lvalue, _) -> (match lvalue with 
-	 	A.Idl(t, n) -> t
-              | A.ArrIdl(t, n, el) -> t)  
-            | A.Call (t, _ , _) -> t
-            (*| A.Indexing (t, _, _) -> t*)
-            | A.Noexpr (t) -> t
-        ) in
         let e1' = expr builder e1
         and e2' = expr builder e2 in
         let t_1 = get_type( e1 )
@@ -260,6 +250,15 @@ let translate (program_unit_list) =
         let binop_type_check ( t, e1, e2 ) = 
            (match t with
              A.Int -> (e1', e2')
+            |A.Bool -> (match t_1, t_2 with 
+                  A.Num, A.Num -> (e1', e2')
+                | A.Num, A.Int -> (e1', 
+                    L.build_sitofp e2' num_t "cast" builder)
+                | A.Int, A.Num -> (L.build_sitofp e1' num_t "cast" builder, 
+                    e2')
+                | A.Bool, A.Bool -> (e1', e2')
+                | A.Int, A.Int -> (e1', e2')
+                | _ -> raise(Failure("not matched")))
             |A.Num -> (match t_1, t_2 with 
                   A.Num, A.Num -> (e1', e2')
                 | A.Num, A.Int -> (e1', 
@@ -419,6 +418,11 @@ let translate (program_unit_list) =
           match (t) with
             A.Int -> int_bop op
           | A.Num -> num_bop op
+          | A.Bool -> match t_1, t_2 with 
+                A.Num, A.Num -> num_bop op
+              | A.Int, A.Num -> num_bop op
+              | A.Num, A.Int -> num_bop op
+              | A.Int, A.Int -> int_bop op
           (*why did you have the extra underscore*)
           | _-> ignore( print_string "build op exception"); num_bop op
        
@@ -432,13 +436,25 @@ let translate (program_unit_list) =
         (match op with
            AST.Neg     -> L.build_neg
          | AST.Not     -> L.build_not) e' "tmp" builder
-      | A.Assign (A.Idl(t, s), e) -> let e' = expr builder e in ignore( let (s_v, _) = (lookup s) in
-                                                              L.build_store e' s_v builder); e'
+      | A.Assign (A.Idl(t, s), e) -> (match t with
+                      A.Symbol -> let t_1 = get_type e in
+                        (match t_1 with 
+                        A.Num -> let e_val = expr builder e in
+                            let e' = L.build_call const_symbol_malloc [| e_val |] "symbolm" builder in
+                            ignore( let (s_v, _) = (lookup s) in L.build_store e' s_v builder); e'
+                        | _ -> raise(Failure("not dealing with this yet")) )
+                      | _ -> let e' = expr builder e in ignore( let (s_v, _) = (lookup s) in 
+                                                              L.build_store e' s_v builder); e')
+
+
       | A.Assign (A.ArrIdl(t, s, el), e) -> let e' = expr builder e in ignore( let (s_v, _) = (lookup s) in
                                                               L.build_store e' s_v builder); e' 
       | A.Call (t, "print_int", [e]) | A.Call (t, "print_bool", [e]) ->
         L.build_call printf_func [| int_format_str ; (expr builder e) |]
           "printf" builder
+      | A.Call (t, "value", [e]) ->
+        L.build_call value_symbol [|  (expr builder e) |]
+          "symbol_value" builder
       | A.Call (t, "print_num", [e]) ->
         L.build_call printf_func [| float_format_str ; (expr builder e) |]
           "printf" builder
