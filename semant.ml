@@ -52,6 +52,7 @@ let convert program_list =
   Hashtbl.add function_map_formals "right" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "operator" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "isConstant" [(Ast.Symbol, "x")];
+  Hashtbl.add function_map_formals "value" [(Ast.Symbol, "x")];
 
   Hashtbl.add function_map_length "print" 1; 
   Hashtbl.add function_map_length "print_int" 1;
@@ -61,7 +62,8 @@ let convert program_list =
   Hashtbl.add function_map_length "right" 1;
   Hashtbl.add function_map_length "operator" 1;
   Hashtbl.add function_map_length "isConstant" 1;
-   
+  Hashtbl.add function_map_length "value" 1;
+
   Hashtbl.add function_map_type "print" Ast.Void;
   Hashtbl.add function_map_type "print_int" Ast.Void;
   Hashtbl.add function_map_type "print_bool" Ast.Void;
@@ -70,6 +72,7 @@ let convert program_list =
   Hashtbl.add function_map_type "right" Ast.Symbol;
   Hashtbl.add function_map_type "operator" Ast.String;
   Hashtbl.add function_map_type "isConstant" Ast.Bool;
+  Hashtbl.add function_map_type "value" Ast.Num;
  
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.String; Hashtbl.add function_map "print" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Int; Hashtbl.add function_map "print_int" new_map; 
@@ -79,7 +82,7 @@ let convert program_list =
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Symbol; Hashtbl.add function_map "right" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.String; Hashtbl.add function_map "operator" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Bool; Hashtbl.add function_map "isConstant" new_map; 
-  
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Symbol; Hashtbl.add function_map "value" new_map;
 (*  let printing_functions = ["print" ; "print_int" ; "print_num" ; "print_bool"] in
   let symbol_functions = ["left" ; "right" ; "operator" ; "isConstant" ] in
   let built_in_functions = printing_functions @ symbol_functions in
@@ -115,7 +118,12 @@ let convert program_list =
       | Sast.ArrIdl(t, _, _)      -> t
   in 
 
-  let check_assign lvaluet rvaluet err = if lvaluet = rvaluet then lvaluet else raise err in 
+  let check_assign lvaluet rvaluet err = match lvaluet, rvaluet with
+    (Sast.Symbol, Sast.Int) -> Sast.Symbol
+    | (Sast.Symbol, Sast.Num) -> Sast.Symbol
+    | (Sast.Num, Sast.Int) -> Sast.Num
+    | (t1, t2) -> if lvaluet = rvaluet then lvaluet else raise err in
+
   (* global scope record for all global variables *) 
    
   let type_of_identifier s env =
@@ -207,7 +215,7 @@ let convert program_list =
     | _ -> ()
   in
  
-    let check_vdecl = function 
+    let check_vdecl = function
       Ast.Decl(t,name) ->  ignore(report_duplicate_map name global_scope); ignore(Hashtbl.add global_scope name t); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) global_scope; Sast.Decl(convert_type t, name)
     | Ast.ArrDecl(t, n, l) -> ignore(report_duplicate_map n global_scope); ignore(Hashtbl.add global_scope n t); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) global_scope; List.iter (fun a -> ignore(check_expr_legal a global_scope)) l; let l' = List.map (fun a -> expr global_scope a ) l in Sast.ArrDecl(convert_type t, n, l')    
         
