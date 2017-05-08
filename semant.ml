@@ -119,8 +119,11 @@ let convert program_list =
   (* global scope record for all global variables *) 
    
   let type_of_identifier s env =
+      
       try Hashtbl.find env s
-      with Not_found -> raise (Failure ("undeclared identifier " ^ s))
+      with 
+	| Not_found -> try Hashtbl.find global_scope s with Not_found -> raise (Failure("undeclared identifier " ^s))
+        | Not_found -> raise (Failure ("undeclared identifier " ^ s))
   in
   
   let find_func fname =  
