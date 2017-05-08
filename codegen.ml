@@ -274,6 +274,7 @@ let translate (program_unit_list) =
                     | A.Int, A.Num -> (L.build_sitofp e1' num_t "cast" builder, e2')
                     | A.Int, A.Int -> (e1', e2')
                     | A.Bool, A.Bool -> (e1', e2')*)
+                | _ -> raise(Failure("not matched"))
 		))
            in
         let e1_new', e2_new' = binop_type_check(t, e1, e2) in 

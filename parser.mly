@@ -101,6 +101,7 @@ stmt:
   | RETURN expr SEMI { Return $2 }
   | LBRACE stmt_list RBRACE { Block(List.rev $2) }
   | IF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5, Block([])) }
+  | IF LPAREN expr RPAREN stmt ELSE stmt    { If($3, $5, $7) }
   | IF LPAREN expr RPAREN stmt else_stmt    { If($3, $5, $6) }
   | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
      { For($3, $5, $7, $9) }
@@ -109,7 +110,7 @@ stmt:
 else_stmt:
   ELSEIF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5, Block([])) }
   | ELSEIF LPAREN expr RPAREN stmt else_stmt { If($3, $5, $6) }
-
+  | ELSEIF LPAREN expr RPAREN stmt ELSE stmt { If($3, $5, $7) } 
 expr_opt:
     /* nothing */ { Noexpr }
   | expr          { $1 }

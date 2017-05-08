@@ -79,7 +79,7 @@ let convert program_list =
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Symbol; Hashtbl.add function_map "right" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.String; Hashtbl.add function_map "operator" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Bool; Hashtbl.add function_map "isConstant" new_map; 
-
+  
 (*  let printing_functions = ["print" ; "print_int" ; "print_num" ; "print_bool"] in
   let symbol_functions = ["left" ; "right" ; "operator" ; "isConstant" ] in
   let built_in_functions = printing_functions @ symbol_functions in
@@ -172,8 +172,9 @@ let convert program_list =
           List.iter2 (fun (ft, _) e -> let et = extract_type e in
                        ignore (check_assign (convert_type ft) et
                                  (Failure ("illegal actual argument found, wrong type"))))
-            (Hashtbl.find function_map_formals fname) new_actuals;
-        Sast.Call(convert_type (Hashtbl.find function_map_type fname), fname, new_actuals)
+            (try Hashtbl.find function_map_formals fname with 
+             | Not_found -> raise(Failure("function not defined in formals map"))) new_actuals;
+        Sast.Call(convert_type (try Hashtbl.find function_map_type fname with Not_found -> raise(Failure("function not defined in types map"))), fname, new_actuals)
     
   in 
 
@@ -210,12 +211,12 @@ let convert program_list =
   in
   
   let check_vdecl_function function_name function_line = match function_line with  
- 	Ast.Decl(t,name) -> let f_map = Hashtbl.find function_map function_name in ignore(report_duplicate_map name f_map); ignore(report_duplicate_map name global_scope); ignore(Hashtbl.add f_map name t); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) f_map; Sast.Decl(convert_type t, name)
-    | Ast.ArrDecl(t, n, l) -> let f_map = Hashtbl.find function_map function_name in ignore(report_duplicate_map n f_map); ignore(report_duplicate_map n global_scope); ignore(Hashtbl.add f_map n t); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) f_map; List.iter (fun a -> ignore(check_expr_legal a f_map)) l; let l' = List.map (fun a -> expr f_map a) l in Sast.ArrDecl(convert_type t, n, l') 
+ 	Ast.Decl(t,name) -> let f_map = (try Hashtbl.find function_map function_name with Not_found -> raise(Failure("function not in function_map"))) in ignore(report_duplicate_map name f_map); ignore(report_duplicate_map name global_scope); ignore(Hashtbl.add f_map name t); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) f_map; Sast.Decl(convert_type t, name)
+    | Ast.ArrDecl(t, n, l) -> let f_map = (try Hashtbl.find function_map function_name with Not_found -> raise(Failure("function not in function map"))) in ignore(report_duplicate_map n f_map); ignore(report_duplicate_map n global_scope); ignore(Hashtbl.add f_map n t); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) f_map; List.iter (fun a -> ignore(check_expr_legal a f_map)) l; let l' = List.map (fun a -> expr f_map a) l in Sast.ArrDecl(convert_type t, n, l') 
 		
   in
   
-  let check_bool_expr env e = if extract_type (expr env e) != Sast.Bool
+  let check_bool_expr env e = if extract_type (expr env e) <> Sast.Bool
       then raise (Failure ("expected boolean expression "))
       else () in
 
@@ -223,14 +224,14 @@ let convert program_list =
   let rec stmt env fname s = match s with 
         Ast.Expr(e) -> Sast.Expr(expr env e)
       | Ast.Block(sl) -> let sl' = List.map (fun a -> stmt env fname a) sl in Sast.Block(sl')
-      | Ast.Return(e) -> if fname <> "" then raise(Failure("can't have return type outside of function")) else let t = extract_type (expr env e) in if t = convert_type (Hashtbl.find function_map_type fname) then Sast.Return(expr env e) else raise (Failure ("incorrect return type"))
+      | Ast.Return(e) -> if fname = "" then raise(Failure("can't have return type outside of function")) else let t = extract_type (expr env e) in if t = convert_type (try Hashtbl.find function_map_type fname with Not_found -> raise(Failure("function not in function_map_type"))) then Sast.Return(expr env e) else raise (Failure ("incorrect return type"))
       | Ast.If(p, b1, b2) -> check_bool_expr env p; Sast.If(expr env p, stmt env fname b1, stmt env fname b2)
       | Ast.For(e1, e2, e3, st) -> check_bool_expr env e2; Sast.For(expr env e1, expr env e2, expr env e3, stmt env fname st)
       | Ast.While(p, s) -> check_bool_expr env p; Sast.While(expr env p, stmt env fname s)
    
   in
   let check_stmt function_name program_unit = 
-	if function_name <> "" then stmt global_scope "" program_unit else stmt (Hashtbl.find function_map function_name) function_name program_unit
+	if function_name = "" then stmt global_scope "" program_unit else stmt (try Hashtbl.find function_map function_name with Not_found -> raise(Failure(function_name ^ " not in function_map for statements"))) function_name program_unit
 
   in
  
@@ -241,8 +242,8 @@ let convert program_list =
   in
   
   let add_formals formal fname = match formal with 
-        Ast.Decl(t, n) -> let f_map = Hashtbl.find function_map fname in Hashtbl.add f_map n t 
-      | Ast.ArrDecl(t, n, el) -> let f_map = Hashtbl.find function_map fname in List.iter (fun a -> ignore(check_expr_legal a f_map)) el; Hashtbl.add f_map n t 
+        Ast.Decl(t, n) -> let f_map = (try Hashtbl.find function_map fname with Not_found -> raise(Failure("function not in function_map for adding formals"))) in Hashtbl.add f_map n t 
+      | Ast.ArrDecl(t, n, el) -> let f_map = (try Hashtbl.find function_map fname with Not_found -> raise(Failure("function not in function_map for adding formals"))) in List.iter (fun a -> ignore(check_expr_legal a f_map)) el; Hashtbl.add f_map n t 
   in
   
   let add_hash x = match x with 
@@ -292,7 +293,7 @@ let convert program_list =
       | Ast.StmtUnit(st) -> Sast.StmtUnit(check_stmt "" st)
   in
  
-  List.map get_type program_list; print_f("%s" 
+  List.map get_type program_list;  
   (*let rec check_types program_list = match program_list with 
         [] -> []
       | head::tail -> let r = get_type head in r::(check_types tail)

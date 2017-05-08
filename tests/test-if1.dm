@@ -2,7 +2,13 @@
 def test() : int
 {
   //This is another one
-  if (true) print_int(42);
+  if (false) {
+	print_int(42);
+  }
+  else if(true){
+        print_int(41);
+  }
+
   print_int(17);
   return 0;
 }
