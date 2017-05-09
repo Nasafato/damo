@@ -13,16 +13,32 @@ main:                                   # @main
 	pushq	%rax
 .Ltmp1:
 	.cfi_def_cfa_offset 16
-	vmovsd	.LCPI0_0(%rip), %xmm0
-	callq	createConstSymbol
+	callq	createSymbol
 	movq	%rax, a(%rip)
+	callq	createSymbol
+	movq	%rax, b(%rip)
+	callq	createSymbol
+	movq	%rax, c(%rip)
+	callq	createSymbol
+	movq	%rax, d(%rip)
+	vmovsd	.LCPI0_0(%rip), %xmm0
 	movq	%rax, %rdi
-	callq	value
+	callq	setSymbolValue
+	movq	%rax, d(%rip)
+	movq	b(%rip), %rdi
+	movq	c(%rip), %rsi
+	movl	$.Ltmp, %edx
+	callq	createRoot
+	movq	d(%rip), %rsi
+	movl	$.Ltmp12, %edx
+	movq	%rax, %rdi
+	callq	createRoot
+	movq	%rax, a(%rip)
 	xorl	%eax, %eax
 	popq	%rdx
 	ret
-.Ltmp2:
-	.size	main, .Ltmp2-main
+.Ltmp3:
+	.size	main, .Ltmp3-main
 	.cfi_endproc
 
 	.type	a,@object               # @a
@@ -32,6 +48,27 @@ main:                                   # @main
 a:
 	.quad	0
 	.size	a, 8
+
+	.type	b,@object               # @b
+	.globl	b
+	.align	8
+b:
+	.quad	0
+	.size	b, 8
+
+	.type	c,@object               # @c
+	.globl	c
+	.align	8
+c:
+	.quad	0
+	.size	c, 8
+
+	.type	d,@object               # @d
+	.globl	d
+	.align	8
+d:
+	.quad	0
+	.size	d, 8
 
 	.type	.Lfmtint,@object        # @fmtint
 	.section	.rodata.str1.1,"aMS",@progbits,1
@@ -48,6 +85,16 @@ a:
 .Lfloatstr:
 	.asciz	"%f\n"
 	.size	.Lfloatstr, 4
+
+	.type	.Ltmp,@object           # @tmp
+.Ltmp:
+	.asciz	"PLUS"
+	.size	.Ltmp, 5
+
+	.type	.Ltmp12,@object         # @tmp1
+.Ltmp12:
+	.asciz	"PLUS"
+	.size	.Ltmp12, 5
 
 
 	.section	".note.GNU-stack","",@progbits

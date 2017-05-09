@@ -65,7 +65,8 @@ let convert program_list =
   Hashtbl.add function_map_formals "left" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "right" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "operator" [(Ast.Symbol, "x")];
-  Hashtbl.add function_map_formals "isConstant" [(Ast.Symbol, "x")];
+  (*Hashtbl.add function_map_formals "setSymbolValue" [(Ast.Symbol, "x"); (Ast.Num, "y")];*)
+  Hashtbl.add function_map_formals "isInitialized" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "value" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "strcmp" [(Ast.String, "x"); (Ast.String, "y")];
 
@@ -76,7 +77,8 @@ let convert program_list =
   Hashtbl.add function_map_length "left" 1;
   Hashtbl.add function_map_length "right" 1;
   Hashtbl.add function_map_length "operator" 1;
-  Hashtbl.add function_map_length "isConstant" 1;
+  (*Hashtbl.add function_map_length "setSymbolValue" 2;*)
+  Hashtbl.add function_map_length "isInitialized" 1;
   Hashtbl.add function_map_length "value" 1;
   Hashtbl.add function_map_length "strcmp" 2;
   
@@ -87,10 +89,11 @@ let convert program_list =
   Hashtbl.add function_map_type "left" Ast.Symbol;
   Hashtbl.add function_map_type "right" Ast.Symbol;
   Hashtbl.add function_map_type "operator" Ast.String;
-  Hashtbl.add function_map_type "isConstant" Ast.Bool;
+  (*Hashtbl.add function_map_type "setSymbolValue" Ast.Symbol;*)
+  Hashtbl.add function_map_type "isInitialized" Ast.Bool;
   Hashtbl.add function_map_type "value" Ast.Num;
   Hashtbl.add function_map_type "strcmp" Ast.Int;
- 
+  
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add function_map "print" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Int, 0); Hashtbl.add function_map "print_int" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Bool, 0); Hashtbl.add function_map "print_bool" new_map; 
@@ -101,6 +104,9 @@ let convert program_list =
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Bool, 0); Hashtbl.add function_map "isConstant" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "value" new_map;
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add new_map "y" (Ast.String, 0); Hashtbl.add function_map "strcmp" new_map;
+
+
+
 
 (*  let printing_functions = ["print" ; "print_int" ; "print_num" ; "print_bool"] in
   let symbol_functions = ["left" ; "right" ; "operator" ; "isConstant" ] in
@@ -180,8 +186,9 @@ let convert program_list =
             | Ast.Add | Ast.Sub | Ast.Mult | Ast.Div | Ast.Mod | Ast.Exp | Ast.Log when t1 = Sast.Int && t2 = Sast.Int -> Sast.Binop(Sast.Int, e1', op, e2')
             | Ast.Add | Ast.Sub | Ast.Mult | Ast.Div | Ast.Mod | Ast.Exp | Ast.Log when t1 = Sast.Num && t2 = Sast.Num -> Sast.Binop(Sast.Num, e1', op, e2')
             (* NEW allow symbols to be operated on with nums *)
-            | Ast.Add | Ast.Sub | Ast.Mult | Ast.Div  when t1 = Sast.Symbol && t2 = Sast.Num -> Sast.Binop(Sast.Symbol, e1', op, e2')
-            | Ast.Add | Ast.Sub | Ast.Mult | Ast.Div  when t1 = Sast.Num && t2 = Sast.Symbol -> Sast.Binop(Sast.Symbol, e1', op, e2')
+            | Ast.Add | Ast.Sub | Ast.Mult | Ast.Div | Ast.Exp | Ast.Log  when t1 = Sast.Symbol && t2 = Sast.Num -> Sast.Binop(Sast.Symbol, e1', op, e2')
+            | Ast.Add | Ast.Sub | Ast.Mult | Ast.Div | Ast.Exp | Ast.Log  when t1 = Sast.Num && t2 = Sast.Symbol -> Sast.Binop(Sast.Symbol, e1', op, e2')
+            | Ast.Add | Ast.Sub | Ast.Mult | Ast.Div | Ast.Exp | Ast.Log  when t1 = Sast.Symbol && t2 = Sast.Symbol -> Sast.Binop(Sast.Symbol, e1', op, e2')
             (* NEW only allow for comparison of ints and nums *)
           	| Ast.Equal | Ast.Neq when t1 = t2 && (t1 = Sast.Int || t1 = Sast.Num) -> Sast.Binop(Sast.Bool, e1', op, e2')
           	| Ast.Less | Ast.Leq | Ast.Greater | Ast.Geq when t1 = Sast.Int && t2 = Sast.Int -> Sast.Binop(Sast.Bool, e1', op, e2')
