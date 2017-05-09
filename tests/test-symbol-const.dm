@@ -1,5 +1,9 @@
 
-symbol a;
-a = 1.0;
 
-value( a );
+symbol a;
+symbol b;
+symbol c;
+symbol d;
+d = 1;
+
+a = b + c + d;

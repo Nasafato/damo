@@ -47,47 +47,16 @@ let translate (program_unit_list) =
     a list for function declarations, 
     and a list for declarations 
   *)
-(*  let helper head main_stmts gvars func_unit = match head with 
-        A.VarUnit(b) -> (main_stmts, gvars::b, func_unit)
-      | A.FuncUnit(f) -> (main_stmts, gvars, func_unit::f)
-      | A.StmtUnit(s) -> (main_stmts::s, gvars, func_unit) 
-
-  in 
-*)
   let rec combine_prog_units prog_stmts main_stmts gvars func_unit = match prog_stmts with
         [] -> (main_stmts, gvars, func_unit)
       | A.VarUnit(b)::tail -> (combine_prog_units tail main_stmts (gvars@[b]) func_unit)
       | A.FuncUnit(f)::tail -> (combine_prog_units tail main_stmts gvars (func_unit@[f]))
       | A.StmtUnit(s)::tail -> (combine_prog_units tail (main_stmts@[s]) gvars func_unit)
-      (*| A.VarUnit(b) -> (main_stmts gvars::b func_unit)
-      | A.FuncUnit(f) -> (main_stmts gvars func_unit::f)
-      | A.StmtUnit(s) -> (main_stmts::s gvars func_unit)*)
 
       in
  
   let topstmts, gvars, functions = combine_prog_units program_unit_list [] [] [] in
 
-  (*
-  let filtered_main_binds = 
-    gvars
-    |> List.filter (function
-      | A.Bind _ -> true
-      | _ -> false
-    ) in
-  
-  let main_binds = 
-    filtered_main_binds
-    |> List.map (function | A.Bind b -> b) in
-  
-  let filtered_main_stmts =
-    topstmts
-    |> List.filter (function
-      | A.Bind _ -> false
-      | _ -> true
-    ) 
-    |> List.rev
-    in
-  *)
   let main_function = {
     A.s_typ = A.Int;
     A.s_fname = "main";
@@ -99,6 +68,7 @@ let translate (program_unit_list) =
       First parse the decls in s_bind:
       Here is where I'm making an assumption, I assume that InitDecl's
       expr will be a Literal (not ID) *)
+  
   let global_vars = 
     let global_var m decl = 
       (match decl with
@@ -112,9 +82,8 @@ let translate (program_unit_list) =
                     StringMap.add s ((L.define_global s init the_module),t) m
                  | A.Bool -> let init = L.const_int (ltype_of_typ t) 0 in
                     StringMap.add s ((L.define_global s init the_module),t) m
-                 | A.Symbol -> let init = L.const_pointer_null (symbol_t) in 
+                 | A.Symbol -> let init = L.const_pointer_null (*(L.i8_type context)*) symbol_t in 
                     StringMap.add s ((L.define_global s init the_module), t) m
-                (*HOLY SHIT THIS NEEDS TO BE CHANGED, SYMBOLS ARE NOT INTS*)
                  | _ -> let init = L.const_int (ltype_of_typ t) 0 in
                     StringMap.add s ((L.define_global s init the_module),t) m)
         | _ -> raise(Failure("Illegal Type"))
@@ -129,11 +98,23 @@ let translate (program_unit_list) =
   (* Declare printf(), which the print built-in function will call *)
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
-
-  let const_symbol_malloc = Llvm.declare_function "createConstSymbol" 
-            ( Llvm.function_type symbol_t [| num_t |] ) the_module in
+  let symbol_malloc = Llvm.declare_function "createSymbol" 
+            ( Llvm.function_type symbol_t [|  |] ) the_module in
+  let symbol_const_check = Llvm.declare_function "isConstant" 
+            ( Llvm.function_type i1_t [| symbol_t |] ) the_module in
+  let root_symbol = Llvm.declare_function "createRoot"
+            ( Llvm.function_type symbol_t [| symbol_t; symbol_t; str_t; |])  the_module in
+  let const_symbol = Llvm.declare_function "setSymbolValue" 
+            ( Llvm.function_type symbol_t [| symbol_t; num_t |] ) the_module in
   let value_symbol = Llvm.declare_function "value" 
             ( Llvm.function_type num_t [| symbol_t |] ) the_module in
+  let symbol_init_check = Llvm.declare_function "isInitialized" 
+            ( Llvm.function_type i1_t [| symbol_t |] ) the_module in
+  let symbol_left = Llvm.declare_function "left" 
+            ( Llvm.function_type symbol_t [| symbol_t |] ) the_module in
+  let symbol_right = Llvm.declare_function "right" 
+            ( Llvm.function_type symbol_t [| symbol_t |] ) the_module in
+
   let pwr_fxn_num = Llvm.declare_function "pow" ( Llvm.function_type num_t [| num_t; num_t |] ) the_module in
   let log_fxn_num = Llvm.declare_function "log" ( Llvm.function_type num_t [|  num_t |] ) the_module in
   (* Declare the built-in printbig() function *)
@@ -144,8 +125,8 @@ let translate (program_unit_list) =
   let function_decls =
     let function_decl m fdecl =
       let check_type = function 
-        A.Decl(t,n) -> ltype_of_typ t 
-      | A.ArrDecl(t,n,el) -> i8_t 
+        A.Decl(t,_) -> ltype_of_typ t 
+      | A.ArrDecl(_,_,_) -> i8_t 
       in 
       let name = fdecl.A.s_fname
       and formal_types =
@@ -173,20 +154,27 @@ let translate (program_unit_list) =
         [] -> (decl_l, stmt_l)
       | A.VarUnit(s) :: tail -> fxn_body_decouple tail (decl_l@[s]) stmt_l
       | A.StmtUnit(sf) :: tail -> fxn_body_decouple tail decl_l (stmt_l@[sf])
+      | _ :: _ -> raise(Failure("Nothing else should be in a function body"))
     ) 
     in 
 
     let locals, stmt_list = fxn_body_decouple fdecl.A.s_body [] [] in 
-
+    let lookup_global n = 
+          try StringMap.find n global_vars
+          with Not_found -> raise(Failure("In add main, variable not defined")) in
     (* Construct the function's "locals": formal arguments and locally
        declared variables.  Allocate each on the stack, initialize their
        value, if appropriate, and remember their values in the "locals" map *)
     let local_vars =
       let add_formal m x p = (match x with
-          A.Decl(t, n) -> L.set_value_name n p; let local = L.build_alloca (ltype_of_typ t) n builder in
-        ignore (L.build_store p local builder);
-        StringMap.add n (local, t) m 
-        | A.ArrDecl(t,n,el) -> L.set_value_name n p;  
+          A.Decl(t, n) -> (match t with 
+            A.Symbol -> L.set_value_name n p; let local = L.build_call symbol_malloc [| |] "symbolm" builder in
+                      ignore (L.build_store p local builder);
+                      StringMap.add n (local, t) m 
+            | _ -> L.set_value_name n p; let local = L.build_alloca (ltype_of_typ t) n builder in
+                      ignore (L.build_store p local builder);
+                      StringMap.add n (local, t) m )
+        | A.ArrDecl(t,n,_) -> L.set_value_name n p;  
         let local = L.build_alloca (ltype_of_typ t) n builder in
         ignore (L.build_store p local builder);
         StringMap.add n (local, t) m )
@@ -194,23 +182,47 @@ let translate (program_unit_list) =
 
       let add_local m x= (match x with 
           A.Decl(t, n) -> let local_var = L.build_alloca (ltype_of_typ t) n builder
-          in StringMap.add n (local_var, t) m 
-        | A.ArrDecl(t, n, el) -> let local_var = L.build_alloca (ltype_of_typ t) n builder
-          in StringMap.add n (local_var, t) m 
+             in StringMap.add n (local_var, t) m 
+          | A.ArrDecl(t, n, _) -> let local_var = L.build_alloca (ltype_of_typ t) n builder
+            in StringMap.add n (local_var, t) m 
 
+      ) in
+
+      (*
+        Most global variables were declared at the top, but side i didn't have a builder for
+        the global context, this fuction mallocs all the global symbols and adds back to the 
+        global map. all other variables are left unchanged
+      *)
+      let add_main_local m x=(match x with 
+          A.Decl(t, n) -> (match t with
+            A.Symbol -> let global_variable = L.build_call symbol_malloc [| |] "symbolmal" builder in
+                let (s_v, _) = lookup_global n in ignore(L.build_store global_variable s_v builder);
+                m
+            | _ -> m
+          )
+          | A.ArrDecl(t, n, _) -> let local_var = L.build_alloca (ltype_of_typ t) n builder
+            in StringMap.add n (local_var, t) m 
       ) in
 
       let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.s_formals
           (Array.to_list (L.params the_function)) in
-      List.fold_left add_local formals locals in
+      if fdecl.A.s_fname = "main" then 
+          List.fold_left add_main_local global_vars gvars
+      else
+          List.fold_left add_local formals locals in
     let array_hash = Hashtbl.create 20 in 
 
     let init_hash = Hashtbl.create 20 in 
     (* Return the value for a variable or formal argument *)
-    let lookup n = try StringMap.find n local_vars
-      with Not_found -> try StringMap.find n global_vars
-      with Not_found -> try Hashtbl.find init_hash n
-      with Not_found -> raise (Failure ("not defined yet")) 
+    let lookup n = 
+      if fdecl.A.s_fname = "main" then 
+          try StringMap.find n global_vars
+          with Not_found -> raise(Failure("Global variable not defined"))
+      else
+        try StringMap.find n local_vars
+        with Not_found -> try StringMap.find n global_vars
+        with Not_found -> try Hashtbl.find init_hash n
+        with Not_found -> raise (Failure ("not defined yet")) 
     in
       let get_type node = (match node with
               A.IntLit (t , _) -> t
@@ -222,8 +234,8 @@ let translate (program_unit_list) =
             | A.Binop (t, _, _, _) -> t
             | A.Unop (t, _, _) -> t
             | A.Assign (lvalue, _) -> (match lvalue with 
-               A.Idl(t, n) -> t
-              | A.ArrIdl(t, n, el) -> t)  
+               A.Idl(t, _) -> t
+              | A.ArrIdl(t, _, el) -> t)  
             | A.Call (t, _ , _) -> t
             (*| A.Indexing (t, _, _) -> t*)
             | A.Noexpr (t) -> t
@@ -236,13 +248,16 @@ let translate (program_unit_list) =
       | A.StringLit(t, st) -> L.build_global_stringptr st "tmp" builder 
       | A.NumLit(t, num) -> L.const_float num_t num
       | A.Noexpr(t) -> L.const_int i32_t 0
-      (*| A.SymbolLit(t, ls, rs, op, fl)-> L.const_int i32_t 0*)
       | A.Id(t, s) -> let (s_v,_) = lookup s in L.build_load s_v s builder
       (*| A.Indexing (t,n, e) -> let (pointer,_) = Hashtbl.find array_hash n in
 		let e' = expr builder e in 
 		L.build_load (L.build_gep pointer [| e' |] "tmp" builder) "val" builder
       *)		  
       | A.Binop (t, e1, op, e2) ->
+        let get_name e_xp = (match e_xp with
+          A.Id( _, n ) -> n
+          | _ -> raise(Failure("WHY IS THIS NOT AN ID"))
+        ) in
         let e1' = expr builder e1
         and e2' = expr builder e2 in
         let t_1 = get_type( e1 )
@@ -266,68 +281,42 @@ let translate (program_unit_list) =
                 | A.Int, A.Num -> (L.build_sitofp e1' num_t "cast" builder, 
                     e2')
                 | A.Bool, A.Bool -> (e1', e2')  
-		(* you've already extracted the types, why are you matching with identifiers...*)
-                (*| A.Id(t1, _), A.Id(t2, _) -> (match t1, t2 with 
-                      A.Num, A.Num -> (e1', e2')
-                    | A.Num, A.Int -> (e1', L.build_sitofp e2' num_t "cast" builder)
-                    | A.Int, A.Num -> (L.build_sitofp e1' num_t "cast" builder, e2')
-                    | A.Int, A.Int -> (e1', e2')
-                    | A.Bool, A.Bool -> (e1', e2')*)
-                | _ -> raise(Failure("not matched"))
-		))
+                | _ -> raise(Failure("not matched")))
+            |A.Symbol -> let t1 = get_type e1 and t2 = (get_type e2) in ( match t1, t2 with
+                (* if they are both symbols, then get their names and look them up to
+                    get back llvm values *)
+                  A.Symbol, A.Symbol -> e1', e2'
+                (*| A.Num, A.Symbol -> 
+                            let e' = L.build_call const_symbol [| s_v1; e_val |] "symbolm" builder in
+                            ignore( L.build_store e' s_v builder); e'*)
+                | _, _ -> raise(Failure("Not here yet"))
+                )
+            | _ -> raise(Failure("Shouldn't be here"))
+          )
            in
         let e1_new', e2_new' = binop_type_check(t, e1, e2) in 
           
-        (*
-        let bop_int_with_num (e1, e2) =
-          (match e1, e2 with
-           | A.Literal i , A.NumLit _ -> expr builder (A.NumLit (float_of_int (i))), e2', A.Num
-           | A.NumLit _, A.Literal i -> e1', expr builder (A.NumLit (float_of_int (i)) ), A.Num
-           | A.Id(n), A.Id(i) -> let _, t1 = lookup n in 
-             let _, t2 = lookup i in
-             if (t1 = A.Num) && (t2 = A.Int) then 
-               e1', (L.build_sitofp e2' num_t "cast" builder), A.Num
-             else if (t1 = A.Int) && (t2 = A.Num) then 
-               (L.build_sitofp e1' num_t "cast" builder), e2', A.Num
-             else if t1 = A.Int && t2 = A.Int then
-              e1', e2', A.Int
-             else if t1 = A.Num && t2 = A.Num then
-               e1', e2', A.Num
-             else if t1 = A.Bool && t2 = A.Bool then
-               e1', e2', A.Bool
-             else
-               raise( IllegalType ) (* there should be no other types coming this way*)
-           | A.Id(n), A.Literal(_) -> let _, t1 = lookup n in 
-              if t1 = A.Num then 
-                e1', (L.build_sitofp e2' num_t "cast" builder), A.Num
-              else
-                e1', e2', A.Int
-           | A.Literal(_), A.Id(n) -> let _, t1 = lookup n in 
-              if t1 = A.Num then 
-                (L.build_sitofp e1' num_t "cast" builder), e2', A.Num
-              else
-                e1', e2', A.Int
-            | A.Id(i), A.NumLit(_) -> let _, t1 = lookup i in 
-              if t1 = A.Int then 
-                (L.build_sitofp e1' num_t "cast" builder), e2', A.Num
-              else
-                e1', e2', A.Num
-            | A.NumLit(_), A.Id(n) -> let _, t1 = lookup n in 
-              if t1 = A.Int then 
-                e1', (L.build_sitofp e2' num_t "cast" builder), A.Num
-              else
-                e1', e2', A.Num
-            | A.BoolLit(_), A.BoolLit(_) -> e1', e2', A.Bool
-            | A.Literal(_), A.Literal(_) -> e1', e2', A.Int
-            | A.NumLit(_), A.NumLit(_) -> e1', e2', A.Num
-            | _, _ -> raise( IllegalType )
-          ) in
-        (* if we have int+num, cast int into a float and continue*)
-        let (e1', e2', expr_type) = bop_int_with_num (e1, e2) in 
-        *)
+        let get_str_op op_t = (match op with 
+             AST.Add     -> "PLUS"
+           | AST.Sub     -> "SUB"
+           | AST.Mult    -> "MULT"
+           | AST.Div     -> "DIV"
+           | AST.Exp     -> "EXP"
+           | AST.Log     -> "LOG"
+           | _ -> raise(Failure("Not supported operator"))
+        ) in
 
+        if t = A.Symbol then let sym_type = 
+         let t1 = (get_type e1) and t2 = (get_type e2) in 
+          ( match t1, t2 with
+            A.Symbol, A.Symbol -> 
+                let operat = L.build_global_stringptr (get_str_op(op)) "tmp" builder in 
+                let e' = L.build_call root_symbol [| e1_new'; e2_new'; operat |]
+                   "symbolm" builder in  e'
+            | _, _ -> raise(Failure("FUCK ME"))
+          ) in sym_type
         (* Exp and Log are run time functions because they are without llvm equivalents *)
-        if op = AST.Exp then 
+        else if op = AST.Exp then 
         (* For exp functions, if num just call the exp function, else cast int to num
         then build exp funtion then cast back to int *)
             let exp_types = (match t with
@@ -392,30 +381,8 @@ let translate (program_unit_list) =
            | _ -> raise( IllegalType )
           ) e1_new' e2_new' "tmp" builder in 
 
-        (*
-        let string_of_e1'_llvalue = L.string_of_llvalue e1'
-        and string_of_e2'_llvalue = L.string_of_llvalue e2' in
-        let space = Str.regexp " " in
-        let list_of_e1'_llvalue = Str.split space string_of_e1'_llvalue 
-        and list_of_e2'_llvalue = Str.split space string_of_e2'_llvalue in
-        let i32_re = Str.regexp "i32\\|32*\\|i8\\|i8\\|i1\\|i1*"
-        and num_re = Str.regexp "double\\|double*" in
-        let rec match_string regexp str_list i =
-          let length = List.length str_list in
-          match (Str.string_match regexp (List.nth str_list i) 0) with
-            true -> true
-          | false -> if ( i> length - 2 ) then false else match_string regexp str_list (succ i) in
-        let get_type llvalue = match (match_string i32_re llvalue 0) with
-            true -> "int"
-          | false -> (match (match_string num_re llvalue 0) with
-                true -> "num"
-              | false -> "" ) in
-        let e1'_type = get_type list_of_e1'_llvalue
-        and e2'_type = get_type list_of_e2'_llvalue in
-        *)
-
         let build_ops_with_types t = 
-          match (t) with
+          (match (t) with
             A.Int -> int_bop op
           | A.Num -> num_bop op
           | A.Bool -> match t_1, t_2 with 
@@ -423,10 +390,11 @@ let translate (program_unit_list) =
               | A.Int, A.Num -> num_bop op
               | A.Num, A.Int -> num_bop op
               | A.Int, A.Int -> int_bop op
+              | _, _ -> raise(Failure("Not supported for boolean ops, for strings use strcmp"))
           (*why did you have the extra underscore*)
           | _-> ignore( print_string "build op exception"); num_bop op
-       
-  	in 
+          )     
+  	   in 
 
         (build_ops_with_types t) (*e1_new' e2_new'*)
       (* end building bin_ops*)
@@ -439,10 +407,17 @@ let translate (program_unit_list) =
       | A.Assign (A.Idl(t, s), e) -> (match t with
                       A.Symbol -> let t_1 = get_type e in
                         (match t_1 with 
-                        A.Num -> let e_val = expr builder e in
-                            let e' = L.build_call const_symbol_malloc [| e_val |] "symbolm" builder in
-                            ignore( let (s_v, _) = (lookup s) in L.build_store e' s_v builder); e'
-                        | _ -> raise(Failure("not dealing with this yet")) )
+                          A.Num -> let e_val = expr builder e in
+                            let (s_v, _) = (lookup s) in let s_v1 = L.build_load s_v s builder in
+                            let e' = L.build_call const_symbol [| s_v1; e_val |] "symbolm" builder in
+                            ignore( L.build_store e' s_v builder); e'
+                        | A.Int -> let e_val = L.build_sitofp (expr builder e) num_t "cast" builder in
+                            let (s_v, _) = (lookup s) in let s_v1  =  L.build_load s_v s builder in
+                            let e' = L.build_call const_symbol [| s_v1; e_val |] "symbolm" builder in
+                            ignore( L.build_store e' s_v builder); e'
+                        | _ -> let e_val = expr builder e in 
+                            let (s_v, _) = lookup s in 
+                            ignore( L.build_store e_val s_v builder ); e_val )
                       | _ -> let e' = expr builder e in ignore( let (s_v, _) = (lookup s) in 
                                                               L.build_store e' s_v builder); e')
 
@@ -452,19 +427,34 @@ let translate (program_unit_list) =
       | A.Call (t, "print_int", [e]) | A.Call (t, "print_bool", [e]) ->
         L.build_call printf_func [| int_format_str ; (expr builder e) |]
           "printf" builder
-      | A.Call (t, "value", [e]) ->
+
+      (* Symbol function calls *)
+      | A.Call (_, "value", [e]) ->
         L.build_call value_symbol [|  (expr builder e) |]
           "symbol_value" builder
-      | A.Call (t, "print_num", [e]) ->
+      | A.Call (_, "isConstant", [e]) ->
+        L.build_call symbol_const_check [|  (expr builder e) |]
+          "symbol_const" builder
+      | A.Call (_, "isInitialized", [e]) ->
+        L.build_call symbol_init_check [|  (expr builder e) |]
+          "symbol_init" builder
+      | A.Call (_, "left", [e]) ->
+        L.build_call symbol_left [|  (expr builder e) |]
+          "symbol_left_call" builder
+      | A.Call (_, "right", [e]) ->
+        L.build_call symbol_right [|  (expr builder e) |]
+          "symbol_right_call" builder
+
+      | A.Call (_, "print_num", [e]) ->
         L.build_call printf_func [| float_format_str ; (expr builder e) |]
           "printf" builder
       (* NEW call printf when print_string is called *)
-      | A.Call (t, "print", [e]) ->
+      | A.Call (_, "print", [e]) ->
         L.build_call printf_func [| str_format_str ; (expr builder e) |]
           "printf" builder
-      | A.Call (t, "printbig", [e]) ->
+      | A.Call (_, "printbig", [e]) ->
         L.build_call printbig_func [| (expr builder e) |] "printbig" builder
-      | A.Call (t, f, act) ->
+      | A.Call (_, f, act) ->
         let (fdef, fdecl) = StringMap.find f function_decls in
         let actuals = List.rev (List.map (expr builder) (List.rev act)) in
         let result = (match fdecl.A.s_typ with A.Void -> ""
@@ -516,21 +506,6 @@ let translate (program_unit_list) =
         let merge_bb = L.append_block context "merge" the_function in
         ignore (L.build_cond_br bool_val body_bb merge_bb pred_builder);
         L.builder_at_end context merge_bb
-      (*
-      | A.Initialize(t, n, e) -> let e' = expr builder e in  
-        	let local = L.build_alloca (ltype_of_typ t) n builder in
-        	ignore(L.build_store e' local builder);
-        	ignore(Hashtbl.add init_hash n (local, t)); builder
-      *)
-      (*| A.Array(t, n, e)-> let e' = expr builder e
-		in let array_t = L.build_array_malloc (ltype_of_typ t) e' "arr" builder in
-	        ignore(Hashtbl.add array_hash n (array_t, t)); builder*)
-    (*
-      | A.Arrassign(n, e1, e2)-> let (pointer,_) = Hashtbl.find array_hash n in
-		let e1' = expr builder e1 in
-		let e2' = expr builder e2 in
-		L.build_store e2' (L.build_gep pointer [| e1' |] "tmp" builder) builder; builder
-    *)
     
       | A.For(e1, e2, e3, body) -> stmt builder
 					( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ])
@@ -544,3 +519,19 @@ let translate (program_unit_list) =
   in 
   
   List.iter build_function_body functions; the_module
+
+
+
+(*
+
+//symbol a;
+
+
+//a = 1.0;
+
+//symbol b = 3.0;
+
+//value( a );
+//print_bool( isConstant(a) );
+//print_bool( isInitialized(a) );
+*)
