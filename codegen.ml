@@ -25,7 +25,8 @@ let translate (program_unit_list) =
   and i8_t   = L.i8_type context
   and str_t = L.pointer_type (L.i8_type context)
   and i1_t   = L.i1_type   context
-  and void_t = L.void_type context 
+  and void_t = L.void_type context
+  (*and void_ptr = L.pointer_type (L.i8_type context)*)
   and symbol_t = L.pointer_type (L.i8_type context) in
 
   let ltype_of_typ = function
@@ -114,7 +115,9 @@ let translate (program_unit_list) =
             ( Llvm.function_type symbol_t [| symbol_t |] ) the_module in
   let symbol_right = Llvm.declare_function "right" 
             ( Llvm.function_type symbol_t [| symbol_t |] ) the_module in
-
+  (*let malloc = LLvm.declare_function "malloc"
+	    ( Llvm.function_type void_ptr [| i_32 |] ) the_module in  
+  *)
   let pwr_fxn_num = Llvm.declare_function "pow" ( Llvm.function_type num_t [| num_t; num_t |] ) the_module in
   let log_fxn_num = Llvm.declare_function "log" ( Llvm.function_type num_t [|  num_t |] ) the_module in
   (* Declare the built-in printbig() function *)
