@@ -100,10 +100,13 @@ let translate (program_unit_list) =
   let printf_func = L.declare_function "printf" printf_t the_module in
   let string_compare = L.declare_function "strcmp" 
             ( Llvm.function_type i32_t [| str_t; str_t |]) the_module in
+
+  let symbol_operator = Llvm.declare_function "operator" 
+            ( Llvm.function_type str_t [| symbol_t |] ) the_module in
   let symbol_malloc = Llvm.declare_function "createSymbol" 
             ( Llvm.function_type symbol_t [|  |] ) the_module in
   let symbol_const_check = Llvm.declare_function "isConstant" 
-            ( Llvm.function_type i1_t [| symbol_t |] ) the_module in
+            ( Llvm.function_type i32_t [| symbol_t |] ) the_module in
   let root_symbol = Llvm.declare_function "createRoot"
             ( Llvm.function_type symbol_t [| symbol_t; symbol_t; str_t; |])  the_module in
   let const_symbol = Llvm.declare_function "setSymbolValue" 
@@ -111,7 +114,7 @@ let translate (program_unit_list) =
   let value_symbol = Llvm.declare_function "value" 
             ( Llvm.function_type num_t [| symbol_t |] ) the_module in
   let symbol_init_check = Llvm.declare_function "isInitialized" 
-            ( Llvm.function_type i1_t [| symbol_t |] ) the_module in
+            ( Llvm.function_type i32_t [| symbol_t |] ) the_module in
   let symbol_left = Llvm.declare_function "left" 
             ( Llvm.function_type symbol_t [| symbol_t |] ) the_module in
   let symbol_right = Llvm.declare_function "right" 
@@ -428,6 +431,8 @@ let translate (program_unit_list) =
           "printf" builder
       | A.Call (t, "strcompare", [e1; e2]) -> L.build_call string_compare [| (expr builder e1); (expr builder e2) |]
           "strcmp" builder
+
+
       (* Symbol function calls *)
       | A.Call (_, "value", [e]) ->
         L.build_call value_symbol [|  (expr builder e) |]
@@ -444,6 +449,9 @@ let translate (program_unit_list) =
       | A.Call (_, "right", [e]) ->
         L.build_call symbol_right [|  (expr builder e) |]
           "symbol_right_call" builder
+      | A.Call (_, "operator", [e]) ->
+        L.build_call symbol_operator [|  (expr builder e) |]
+          "symbol_operator" builder
 
       | A.Call (_, "print_num", [e]) ->
         L.build_call printf_func [| float_format_str ; (expr builder e) |]

@@ -68,6 +68,8 @@ let convert program_list =
   Hashtbl.add function_map_formals "isInitialized" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "value" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "strcompare" [(Ast.String, "x"); (Ast.String, "y")];
+  Hashtbl.add function_map_formals "isConstant" [(Ast.Symbol, "x")];
+  Hashtbl.add function_map_formals "operator" [(Ast.Symbol, "x")];
 
   Hashtbl.add function_map_length "print" 1; 
   Hashtbl.add function_map_length "print_int" 1;
@@ -79,7 +81,9 @@ let convert program_list =
   Hashtbl.add function_map_length "isInitialized" 1;
   Hashtbl.add function_map_length "value" 1;
   Hashtbl.add function_map_length "strcompare" 2;
-  
+  Hashtbl.add function_map_length "operator" 1;
+  Hashtbl.add function_map_length "isConstant" 1;
+
   Hashtbl.add function_map_type "print" Ast.Void;
   Hashtbl.add function_map_type "print_int" Ast.Void;
   Hashtbl.add function_map_type "print_bool" Ast.Void;
@@ -87,21 +91,23 @@ let convert program_list =
   Hashtbl.add function_map_type "left" Ast.Symbol;
   Hashtbl.add function_map_type "right" Ast.Symbol;
   Hashtbl.add function_map_type "operator" Ast.String;
-  Hashtbl.add function_map_type "isInitialized" Ast.Bool;
+  Hashtbl.add function_map_type "isInitialized" Ast.Int;
   Hashtbl.add function_map_type "value" Ast.Num;
   Hashtbl.add function_map_type "strcompare" Ast.Int;
-  
+  Hashtbl.add function_map_type "isConstant" Ast.Int;
+  Hashtbl.add function_map_type "operator" Ast.String;
+
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add function_map "print" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Int, 0); Hashtbl.add function_map "print_int" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Bool, 0); Hashtbl.add function_map "print_bool" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Num, 0); Hashtbl.add function_map "print_num" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "left" new_map; 
-  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "right" new_map; 
-  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add function_map "operator" new_map; 
-  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Bool, 0); Hashtbl.add function_map "isConstant" new_map; 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "right" new_map;
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "isConstant" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "value" new_map;
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add new_map "y" (Ast.String, 0); Hashtbl.add function_map "strcompare" new_map;
-
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "operator" new_map;
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "isInitialized" new_map; 
 
 
 
