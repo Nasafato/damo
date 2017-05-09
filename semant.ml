@@ -189,6 +189,8 @@ let convert program_list =
             | Ast.Add | Ast.Sub | Ast.Mult | Ast.Div | Ast.Exp | Ast.Log  when t1 = Sast.Symbol && t2 = Sast.Num -> Sast.Binop(Sast.Symbol, e1', op, e2')
             | Ast.Add | Ast.Sub | Ast.Mult | Ast.Div | Ast.Exp | Ast.Log  when t1 = Sast.Num && t2 = Sast.Symbol -> Sast.Binop(Sast.Symbol, e1', op, e2')
             | Ast.Add | Ast.Sub | Ast.Mult | Ast.Div | Ast.Exp | Ast.Log  when t1 = Sast.Symbol && t2 = Sast.Symbol -> Sast.Binop(Sast.Symbol, e1', op, e2')
+             | Ast.Add | Ast.Sub | Ast.Mult | Ast.Div | Ast.Exp | Ast.Log  when t1 = Sast.Symbol && t2 = Sast.Int -> Sast.Binop(Sast.Symbol, e1', op, e2')
+              | Ast.Add | Ast.Sub | Ast.Mult | Ast.Div | Ast.Exp | Ast.Log  when t1 = Sast.Int && t2 = Sast.Symbol -> Sast.Binop(Sast.Symbol, e1', op, e2')
             (* NEW only allow for comparison of ints and nums *)
           	| Ast.Equal | Ast.Neq when t1 = t2 && (t1 = Sast.Int || t1 = Sast.Num) -> Sast.Binop(Sast.Bool, e1', op, e2')
           	| Ast.Less | Ast.Leq | Ast.Greater | Ast.Geq when t1 = Sast.Int && t2 = Sast.Int -> Sast.Binop(Sast.Bool, e1', op, e2')

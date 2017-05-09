@@ -6,4 +6,5 @@ symbol c;
 symbol d;
 d = 1;
 
-a = b + c + d;
+
+a = 1 + b;
