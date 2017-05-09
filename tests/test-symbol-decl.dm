@@ -1,3 +1,3 @@
 symbol a;
 symbol b;
-symbol a;
+symbol c;

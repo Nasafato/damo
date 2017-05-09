@@ -168,7 +168,8 @@ let translate (program_unit_list) =
     let local_vars =
       let add_formal m x p = (match x with
           A.Decl(t, n) -> (match t with 
-            A.Symbol -> L.set_value_name n p; let local = L.build_call symbol_malloc [| |] "symbolm" builder in
+            A.Symbol -> L.set_value_name n p; 
+                      let local = L.build_alloca (ltype_of_typ t) n builder in
                       ignore (L.build_store p local builder);
                       StringMap.add n (local, t) m 
             | _ -> L.set_value_name n p; let local = L.build_alloca (ltype_of_typ t) n builder in
@@ -179,21 +180,16 @@ let translate (program_unit_list) =
         ignore (L.build_store p local builder);
         StringMap.add n (local, t) m )
     in
-
       let add_local m x= (match x with 
           A.Decl(t, n) -> let local_var = L.build_alloca (ltype_of_typ t) n builder
              in StringMap.add n (local_var, t) m 
           | A.ArrDecl(t, n, _) -> let local_var = L.build_alloca (ltype_of_typ t) n builder
             in StringMap.add n (local_var, t) m 
-
       ) in
-
-      (*
-        Most global variables were declared at the top, but side i didn't have a builder for
+      (* Most global variables were declared at the top, but side i didn't have a builder for
         the global context, this fuction mallocs all the global symbols and adds back to the 
-        global map. all other variables are left unchanged
-      *)
-      let add_main_local m x=(match x with 
+        global map. all other variables are left unchanged *)
+      let add_main_local m x = (match x with 
           A.Decl(t, n) -> (match t with
             A.Symbol -> let global_variable = L.build_call symbol_malloc [| |] "symbolmal" builder in
                 let (s_v, _) = lookup_global n in ignore(L.build_store global_variable s_v builder);
@@ -521,18 +517,3 @@ let translate (program_unit_list) =
   
   List.iter build_function_body functions; the_module
 
-
-
-(*
-
-//symbol a;
-
-
-//a = 1.0;
-
-//symbol b = 3.0;
-
-//value( a );
-//print_bool( isConstant(a) );
-//print_bool( isInitialized(a) );
-*)
