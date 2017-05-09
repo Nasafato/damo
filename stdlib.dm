@@ -5,57 +5,58 @@ def streq(string a, string b) : bool {
 def eval(symbol a) : num {
 	num leftValue;
 	num rightValue;
+	num result;
 	string op;
-	if (isConstant(a)){
-		return value(a);
+	if (isConstant(a) == 1){
+		result = value(a);
 	}
 	// TODO check if initialized - if not, crash
-	if (1 == 1){
-		return 0.;
-	}
 	else {
 		op = operator(a);
 		if (streq(op, "PLUS")){
 			leftValue = eval(left(a));
 			rightValue = eval(right(a));
-			return leftValue + rightValue;
+			result = leftValue + rightValue;
 		}
 		elseif (streq(op, "MINUS")){
 			leftValue = eval(left(a));
 			rightValue = eval(right(a));
-			return leftValue - rightValue;
+			result = leftValue - rightValue;
 		}
 		elseif (streq(op, "TIMES")){
 			leftValue = eval(left(a));
 			rightValue = eval(right(a));
-			return leftValue * rightValue;
+			result = leftValue * rightValue;
 		}
 		elseif (streq(op, "DIVIDE")){
 			leftValue = eval(left(a));
 			rightValue = eval(right(a));
-			return leftValue / rightValue;
+			result = leftValue / rightValue;
 		}
 		elseif (streq(op, "EXP")){
 			leftValue = eval(left(a));
 			rightValue = eval(right(a));
-			return leftValue ^ rightValue;
+			result = leftValue ^ rightValue;
 		}
 		elseif (streq(op, "LOG")){
 			leftValue = eval(left(a));
 			rightValue = eval(right(a));
-			return leftValue _ rightValue;
+			result = leftValue _ rightValue;
 		}
-		elseif (streq(op, "NEGATIVE")){
+		/*elseif (streq(op, "NEGATIVE")){
 			// TODO currently, we won't reach here
 			leftValue = eval(left(a));
-			return - leftValue;
-		}
-		else {
+			result = - leftValue;
+		}*/
+		/*else {
 			// Crash the program
 			print("Should crash here - invalid symbol operation (eval)");
-		}
+		}*/
 	}
+	return result;
 }
+
+num e = 2.71828;
 
 def partialDerivative(symbol out, symbol in) : num {
 	num leftGrad;
@@ -65,25 +66,26 @@ def partialDerivative(symbol out, symbol in) : num {
 	num dadR;
 	num L;
 	num R;
+	num result;
 
-	if (isConstant(a)){
-		if (a == b){
-			return 1.0;
+	if (isConstant(out) == 1){
+		if (out == in){
+			result = 1.0;
 		}
 		else{
-			return 0.0;
+			result = 0.0;
 		}
 	}
 	else{
-		op = operator(a);
-		if (streq(op, "NEGATIVE")){
-			leftGrad = partialDerivative(left(a), b);
+		op = operator(out);
+		if (0 == 1 /*streq(op, "NEGATIVE")*/){
+			leftGrad = partialDerivative(left(out), in);
 			dadL = -1;
-			return dadL * leftGrad;
+			result = dadL * leftGrad;
 		}
 		else {
-			leftGrad = partialDerivative(left(a), b);
-			rightGrad = partialDerivative(right(a), b);
+			leftGrad = partialDerivative(left(out), in);
+			rightGrad = partialDerivative(right(out), in);
 				
 			if (streq(op, "PLUS")){
 				dadL = 1;
@@ -94,33 +96,33 @@ def partialDerivative(symbol out, symbol in) : num {
 				dadR = -1;
 			}
 			elseif (streq(op, "TIMES")){
-				dadL = eval(right(a));
-				dadR = eval(left(a));
+				dadL = eval(right(out));
+				dadR = eval(left(out));
 			}
 			elseif (streq(op, "DIVIDE")){
-				dadL = 1 / eval(right(a));
-				dadR = - eval(left(a)) / (eval(right(a)) ^ 2);
+				dadL = 1 / eval(right(out));
+				dadR = 0 - eval(left(out)) / (eval(right(out)) ^ 2);
 			}
 			elseif (streq(op, "EXP")){
-				L = eval(left(a));
-				R = eval(right(a));
+				L = eval(left(out));
+				R = eval(right(out));
 				dadL = (R - 1) * L ^ R;
-				dadR = exp() _ L * L ^ R;
+				dadR = e _ L * L ^ R;
 			}
 			elseif (streq(op, "LOG")){
-				L = eval(left(a));
-				R = eval(right(a));
-				dadL = L _ exp() / R;
-				dadR = L _ R * L _ exp() / L;
+				L = eval(left(out));
+				R = eval(right(out));
+				dadL = L _ e / R;
+				dadR = L _ R * L _ e / L;
 			}
 			else {
 				// Crash the program
 				print("Should crash here - invalid symbol operation (partialDerivative)");
 			}
-			return dadL * leftGrad + dadR * rightGrad;
+			result = dadL * leftGrad + dadR * rightGrad;
 		}
 	}
-	return 0.;
+	return result;
 }
 
 /*

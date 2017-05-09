@@ -68,12 +68,6 @@ formal_list:
     typ ID                   { [Decl($1,$2)] }
   | formal_list COMMA typ ID { Decl($3,$4) :: $1 }
 
-/*function_sequence:
-   nothing  { [] }
-  | function_sequence vdecl { $2 @ $1 }
-  | function_sequence stmt { StmtFunit($2) :: $1 }
-*/
-
 typ:
     INT { Int }
   | NUM { Num }
