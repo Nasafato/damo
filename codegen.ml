@@ -254,9 +254,9 @@ let translate (program_unit_list) =
         ) in
       let get_str_op op_t = (match op_t with 
              AST.Add     -> "PLUS"
-           | AST.Sub     -> "SUB"
-           | AST.Mult    -> "MULT"
-           | AST.Div     -> "DIV"
+           | AST.Sub     -> "MINUS"
+           | AST.Mult    -> "TIMES"
+           | AST.Div     -> "DIVIDE"
            | AST.Exp     -> "EXP"
            | AST.Log     -> "LOG"
            | _ -> raise(Failure("Not supported operator"))
