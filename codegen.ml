@@ -25,7 +25,8 @@ let translate (program_unit_list) =
   and i8_t   = L.i8_type context
   and str_t = L.pointer_type (L.i8_type context)
   and i1_t   = L.i1_type   context
-  and void_t = L.void_type context 
+  and void_t = L.void_type context
+  (*and void_ptr = L.pointer_type (L.i8_type context)*)
   and symbol_t = L.pointer_type (L.i8_type context) in
 
   let ltype_of_typ = function
@@ -63,6 +64,9 @@ let translate (program_unit_list) =
     A.s_formals = [];
     A.s_body = List.map (fun x -> A.StmtUnit(x)) topstmts; (*filtered_main_stmts;*)
   } in
+  
+  let array_hash = Hashtbl.create 20 in 
+  let init_hash = Hashtbl.create 20 in 
 
   (* Now build up global variables by parsing the list of globals
       First parse the decls in s_bind:
@@ -86,7 +90,9 @@ let translate (program_unit_list) =
                     StringMap.add s ((L.define_global s init the_module), t) m
                  | _ -> let init = L.const_int (ltype_of_typ t) 0 in
                     StringMap.add s ((L.define_global s init the_module),t) m)
-        | _ -> raise(Failure("Illegal Type"))
+        (*| A.ArrDecl (t, s, el) -> let init = L.const_pointer_null (L.i8_type context) in 
+		    Hashtbl.add array_hash s ((((L.define_global s init the_module), t) m), el)
+	*)|   _ -> raise(Failure("Illegal Type"))
       )
   in List.fold_left global_var StringMap.empty gvars in 
 (*
@@ -119,7 +125,9 @@ let translate (program_unit_list) =
             ( Llvm.function_type symbol_t [| symbol_t |] ) the_module in
   let symbol_right = Llvm.declare_function "right" 
             ( Llvm.function_type symbol_t [| symbol_t |] ) the_module in
-
+  (*let malloc = LLvm.declare_function "malloc"
+	    ( Llvm.function_type void_ptr [| i_32 |] ) the_module in  
+  *)
   let pwr_fxn_num = Llvm.declare_function "pow" ( Llvm.function_type num_t [| num_t; num_t |] ) the_module in
   let log_fxn_num = Llvm.declare_function "log" ( Llvm.function_type num_t [|  num_t |] ) the_module in
   (* Declare the built-in printbig() function *)
@@ -217,10 +225,7 @@ let translate (program_unit_list) =
           List.fold_left add_main_local global_vars gvars
       else
           List.fold_left add_local formals locals in
-    let array_hash = Hashtbl.create 20 in 
-
-    let init_hash = Hashtbl.create 20 in 
-    (* Return the value for a variable or formal argument *)
+        (* Return the value for a variable or formal argument *)
     let lookup n = 
       if fdecl.A.s_fname = "main" then 
           try StringMap.find n global_vars
@@ -289,6 +294,7 @@ let translate (program_unit_list) =
                     e2')
                 | A.Bool, A.Bool -> (e1', e2')
                 | A.Int, A.Int -> (e1', e2')
+                | A.Symbol, A.Symbol -> (e1', e2')
                 | _ -> raise(Failure("not matched")))
             |A.Num -> (match t_1, t_2 with 
                   A.Num, A.Num -> (e1', e2')
@@ -297,7 +303,7 @@ let translate (program_unit_list) =
                 | A.Int, A.Num -> (L.build_sitofp e1' num_t "cast" builder, 
                     e2')
                 | A.Bool, A.Bool -> (e1', e2')  
-                | _ -> raise(Failure("not matched")))
+                | _ -> raise(Failure("not matched num")))
             |A.Symbol -> let t1 = get_type e1 and t2 = (get_type e2) in ( match t1, t2 with
                 (* if they are both symbols, then get their names and look them up to
                     get back llvm values *)
@@ -380,15 +386,18 @@ let translate (program_unit_list) =
            | AST.And     -> L.build_and
            | AST.Mod     -> L.build_frem
            | AST.Or      -> L.build_or
-           | AST.Equal   -> L.build_icmp L.Icmp.Eq
-           | AST.Neq     -> L.build_icmp L.Icmp.Ne
-           | AST.Less    -> L.build_icmp L.Icmp.Slt
-           | AST.Leq     -> L.build_icmp L.Icmp.Sle
-           | AST.Greater -> L.build_icmp L.Icmp.Sgt
-           | AST.Geq     -> L.build_icmp L.Icmp.Sge
+           | AST.Equal   -> L.build_fcmp L.Fcmp.Oeq
+           | AST.Neq     -> L.build_fcmp L.Fcmp.One
+           | AST.Less    -> L.build_fcmp L.Fcmp.Olt
+           | AST.Leq     -> L.build_fcmp L.Fcmp.Ole
+           | AST.Greater -> L.build_fcmp L.Fcmp.Ogt
+           | AST.Geq     -> L.build_fcmp L.Fcmp.Oge
            | _ -> raise( IllegalType )
           ) e1_new' e2_new' "tmp" builder in 
-
+	let symbol_bop op = 
+	(match op with 
+	     AST.Equal -> L.build_ptrdiff
+	) e1_new' e2_new' "tmp" builder in 
         let build_ops_with_types t = 
           (match (t) with
             A.Int -> int_bop op
@@ -398,6 +407,7 @@ let translate (program_unit_list) =
               | A.Int, A.Num -> num_bop op
               | A.Num, A.Int -> num_bop op
               | A.Int, A.Int -> int_bop op
+              | A.Symbol, A.Symbol -> L.build_icmp L.Icmp.Eq (L.build_pointercast e1_new' i32_t "e1" builder) (L.build_pointercast e2_new' i32_t "e2" builder) "tmp" builder
               | _, _ -> raise(Failure("Not supported for boolean ops, for strings use strcmp"))
           (*why did you have the extra underscore*)
           | _-> ignore( print_string "build op exception"); num_bop op
@@ -495,9 +505,12 @@ let translate (program_unit_list) =
     let rec stmt builder = function
         A.Block(sl) -> List.fold_left stmt builder sl
       | A.Expr(e) -> ignore (expr builder e); builder
-      | A.Return(e) -> ignore (match fdecl.A.s_typ with
+      | A.Return(e) -> 
+	ignore (match fdecl.A.s_typ with
             A.Void -> L.build_ret_void builder
-          | _ -> L.build_ret (expr builder e) builder); builder
+          | _ -> L.build_ret (expr builder e) builder
+	); builder
+
       | A.If (predicate, then_stmt, else_stmt) ->
         let bool_val = expr builder predicate in
         let merge_bb = L.append_block context "merge" the_function in
@@ -540,4 +553,5 @@ let translate (program_unit_list) =
   in 
   
   List.iter build_function_body functions; the_module
+
 
