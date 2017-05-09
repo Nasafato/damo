@@ -67,6 +67,7 @@ let convert program_list =
   Hashtbl.add function_map_formals "operator" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "isConstant" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "value" [(Ast.Symbol, "x")];
+  Hashtbl.add function_map_formals "strcmp" [(Ast.String, "x"); (Ast.String, "y")];
 
   Hashtbl.add function_map_length "print" 1; 
   Hashtbl.add function_map_length "print_int" 1;
@@ -77,7 +78,8 @@ let convert program_list =
   Hashtbl.add function_map_length "operator" 1;
   Hashtbl.add function_map_length "isConstant" 1;
   Hashtbl.add function_map_length "value" 1;
-
+  Hashtbl.add function_map_length "strcmp" 2;
+  
   Hashtbl.add function_map_type "print" Ast.Void;
   Hashtbl.add function_map_type "print_int" Ast.Void;
   Hashtbl.add function_map_type "print_bool" Ast.Void;
@@ -87,6 +89,7 @@ let convert program_list =
   Hashtbl.add function_map_type "operator" Ast.String;
   Hashtbl.add function_map_type "isConstant" Ast.Bool;
   Hashtbl.add function_map_type "value" Ast.Num;
+  Hashtbl.add function_map_type "strcmp" Ast.Int;
  
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add function_map "print" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Int, 0); Hashtbl.add function_map "print_int" new_map; 
@@ -97,6 +100,8 @@ let convert program_list =
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add function_map "operator" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Bool, 0); Hashtbl.add function_map "isConstant" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "value" new_map;
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add new_map "y" (Ast.String, 0); Hashtbl.add function_map "strcmp" new_map;
+
 (*  let printing_functions = ["print" ; "print_int" ; "print_num" ; "print_bool"] in
   let symbol_functions = ["left" ; "right" ; "operator" ; "isConstant" ] in
   let built_in_functions = printing_functions @ symbol_functions in
