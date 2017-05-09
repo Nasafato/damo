@@ -22,15 +22,26 @@ let global_scope = Hashtbl.create 15;;
 
 let convert program_list =
   (*map for function name and list of variables, including formals and locals*)
-  let convert_type = function 
+  let convert_type_tuple x = let (t, _) = x in match t with  
         Ast.Int    -> Sast.Int
       | Ast.Bool   -> Sast.Bool
       | Ast.Num    -> Sast.Num 
       | Ast.Symbol -> Sast.Symbol
       | Ast.Void   -> Sast.Void
       | Ast.String -> Sast.String
+       
   in
 
+  let convert_type = function 
+	Ast.Int    -> Sast.Int
+      | Ast.Bool   -> Sast.Bool
+      | Ast.Num    -> Sast.Num 
+      | Ast.Symbol -> Sast.Symbol
+      | Ast.Void   -> Sast.Void
+      | Ast.String -> Sast.String
+ 
+  in
+ 
   let extract_type s_expr = match s_expr with 
 	Sast.Id(t, _)             -> t
       | Sast.Noexpr(t)            -> t 
@@ -42,7 +53,10 @@ let convert program_list =
       | Sast.ArrId(t, _, _)       -> t
       | Sast.Unop(t, _, _)        -> t 
       | Sast.Call(t, _, _)        -> t
+      
   in
+ 
+  (*Hashtbl.add global_scope "test" (Ast.String, 0);*)
   
   Hashtbl.add function_map_formals "print" [(Ast.String, "x")];
   Hashtbl.add function_map_formals "print_int" [(Ast.Int, "x")];
@@ -77,6 +91,7 @@ let convert program_list =
   Hashtbl.add function_map_type "isInitialized" Ast.Bool;
   Hashtbl.add function_map_type "value" Ast.Num;
  
+<<<<<<< HEAD
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.String; Hashtbl.add function_map "print" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Int; Hashtbl.add function_map "print_int" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Bool; Hashtbl.add function_map "print_bool" new_map; 
@@ -87,6 +102,17 @@ let convert program_list =
   (*let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Symbol; Hashtbl.add function_map "setSymbolValue" new_map;*)
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Bool; Hashtbl.add function_map "isInitialized" new_map;
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Symbol; Hashtbl.add function_map "value" new_map;
+=======
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add function_map "print" new_map; 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Int, 0); Hashtbl.add function_map "print_int" new_map; 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Bool, 0); Hashtbl.add function_map "print_bool" new_map; 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Num, 0); Hashtbl.add function_map "print_num" new_map; 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "left" new_map; 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "right" new_map; 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add function_map "operator" new_map; 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Bool, 0); Hashtbl.add function_map "isConstant" new_map; 
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "value" new_map;
+>>>>>>> a1a4b8807b87c93a077f50cb1ca124f7325843f3
 (*  let printing_functions = ["print" ; "print_int" ; "print_num" ; "print_bool"] in
   let symbol_functions = ["left" ; "right" ; "operator" ; "isConstant" ] in
   let built_in_functions = printing_functions @ symbol_functions in
@@ -123,7 +149,7 @@ let convert program_list =
   in 
 
   let check_assign lvaluet rvaluet err = match lvaluet, rvaluet with
-    (Sast.Symbol, Sast.Int) -> Sast.Symbol
+      (Sast.Symbol, Sast.Int) -> Sast.Symbol
     | (Sast.Symbol, Sast.Num) -> Sast.Symbol
     | (Sast.Num, Sast.Int) -> Sast.Num
     | (t1, t2) -> if lvaluet = rvaluet then lvaluet else raise err in
@@ -131,8 +157,11 @@ let convert program_list =
   (* global scope record for all global variables *) 
    
   let type_of_identifier s env =
+      
       try Hashtbl.find env s
-      with Not_found -> raise (Failure ("undeclared identifier " ^ s))
+      with 
+	| Not_found -> try Hashtbl.find global_scope s with Not_found -> raise (Failure("undeclared identifier " ^s))
+        | Not_found -> raise (Failure ("undeclared identifier " ^ s))
   in
   
   let find_func fname =  
@@ -144,8 +173,8 @@ let convert program_list =
   
   
   and check_lvalue env lvalue  = match lvalue with  
-        Ast.Idl(s) -> Sast.Idl(convert_type (type_of_identifier s env), s)
-      | Ast.ArrIdl(s, el) -> List.iter (fun a -> ignore(check_expr_legal a env)) el; let el' = List.map (fun a -> expr env a) el in Sast.ArrIdl(convert_type (type_of_identifier s env), s, el')
+        Ast.Idl(s) -> Sast.Idl(convert_type_tuple(type_of_identifier s env), s)
+      | Ast.ArrIdl(s, el) -> List.iter (fun a -> ignore(check_expr_legal a env)) el; let el' = List.map (fun a -> expr env a) el in Sast.ArrIdl(convert_type_tuple(type_of_identifier s env), s, el')
  
   and expr env e = match e with 
         Ast.IntLit(i)    -> Sast.IntLit(Sast.Int, i)
@@ -153,9 +182,9 @@ let convert program_list =
       (* NEW an expression can be a string literal *)
       | Ast.NumLit(n)    -> Sast.NumLit(Sast.Num, n)
       | Ast.StringLit(s) -> Sast.StringLit(Sast.String, s)
-      | Ast.Id(s) -> Sast.Id(convert_type (type_of_identifier s env), s)
-      | Ast.ArrId(a, el) -> List.iter (fun x -> ignore(check_expr_legal x env)) el; let el' = List.map(fun x -> expr env x) el in  Sast.ArrId(convert_type (type_of_identifier a env), a, el')
-      | Ast.Binop(e1, op, e2) as e -> let e1' = expr env e1 and e2' = expr env e2 in let t1 = extract_type e1' and t2 = extract_type e2' in
+      | Ast.Id(s) -> Sast.Id(convert_type_tuple (type_of_identifier s env), s)
+      | Ast.ArrId(a, el) -> List.iter (fun x -> ignore(check_expr_legal x env)) el; let el' = List.map(fun x -> expr env x) el in  Sast.ArrId(convert_type_tuple (type_of_identifier a env), a, el')
+      | Ast.Binop(e1, op, e2) -> let e1' = expr env e1 and e2' = expr env e2 in let t1 = extract_type e1' and t2 = extract_type e2' in
       	(match op with
               Ast.Add | Ast.Sub | Ast.Mult | Ast.Div | Ast.Mod | Ast.Exp | Ast.Log when (t1 = Sast.Int && t2 = Sast.Num )-> Sast.Binop(Sast.Num, e1', op, e2')
             | Ast.Add | Ast.Sub | Ast.Mult | Ast.Div | Ast.Mod | Ast.Exp | Ast.Log when (t1 = Sast.Num && t2 = Sast.Int) -> Sast.Binop(Sast.Num, e1', op, e2')
@@ -171,7 +200,7 @@ let convert program_list =
           	| Ast.And | Ast.Or when t1 = Sast.Bool && t2 = Sast.Bool -> Sast.Binop(Sast.Bool, e1', op, e2')
                   | _ -> raise (Failure ("illegal binary operator "))
         )
-      | Ast.Unop(op, e) as ex -> let e' = expr env e in let t = extract_type e' in
+      | Ast.Unop(op, e) -> let e' = expr env e in let t = extract_type e' in
         (match op with
            Ast.Neg when t = Sast.Int -> Sast.Unop(Sast.Int, op, e')
          | Ast.Not when t = Sast.Bool -> Sast.Unop(Sast.Bool, op, e')
@@ -212,20 +241,20 @@ let convert program_list =
   in
 
 
-  let check_not_void_map argOne argTwo = match argTwo with 
-      Ast.Void -> raise(Failure("cannot have void variable type"))
-    | _ -> ()
+  let check_not_void_map _ argTwo  = match argTwo with 
+      (Ast.Void, _) -> raise(Failure("cannot have void variable type"))
+    | (_, _) -> ()
   in
  
     let check_vdecl = function
-      Ast.Decl(t,name) ->  ignore(report_duplicate_map name global_scope); ignore(Hashtbl.add global_scope name t); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) global_scope; Sast.Decl(convert_type t, name)
-    | Ast.ArrDecl(t, n, l) -> ignore(report_duplicate_map n global_scope); ignore(Hashtbl.add global_scope n t); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) global_scope; List.iter (fun a -> ignore(check_expr_legal a global_scope)) l; let l' = List.map (fun a -> expr global_scope a ) l in Sast.ArrDecl(convert_type t, n, l')    
+      Ast.Decl(t,name) ->  ignore(report_duplicate_map name global_scope); ignore(Hashtbl.add global_scope name (t, 0)); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) global_scope; Sast.Decl(convert_type t, name)
+    | Ast.ArrDecl(t, n, l) -> ignore(report_duplicate_map n global_scope); ignore(Hashtbl.add global_scope n (t, List.length l)); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) global_scope; List.iter (fun a -> ignore(check_expr_legal a global_scope)) l; let l' = List.map (fun a -> expr global_scope a ) l in Sast.ArrDecl(convert_type t, n, l')    
         
   in
   
   let check_vdecl_function function_name function_line = match function_line with  
- 	Ast.Decl(t,name) -> let f_map = (try Hashtbl.find function_map function_name with Not_found -> raise(Failure("function not in function_map"))) in ignore(report_duplicate_map name f_map); ignore(report_duplicate_map name global_scope); ignore(Hashtbl.add f_map name t); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) f_map; Sast.Decl(convert_type t, name)
-    | Ast.ArrDecl(t, n, l) -> let f_map = (try Hashtbl.find function_map function_name with Not_found -> raise(Failure("function not in function map"))) in ignore(report_duplicate_map n f_map); ignore(report_duplicate_map n global_scope); ignore(Hashtbl.add f_map n t); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) f_map; List.iter (fun a -> ignore(check_expr_legal a f_map)) l; let l' = List.map (fun a -> expr f_map a) l in Sast.ArrDecl(convert_type t, n, l') 
+ 	Ast.Decl(t,name) -> let f_map = (try Hashtbl.find function_map function_name with Not_found -> raise(Failure("function not in function_map"))) in ignore(report_duplicate_map name f_map); ignore(report_duplicate_map name global_scope); ignore(Hashtbl.add f_map name (t, 0)); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) f_map; Sast.Decl(convert_type t, name)
+    | Ast.ArrDecl(t, n, l) -> let f_map = (try Hashtbl.find function_map function_name with Not_found -> raise(Failure("function not in function map"))) in ignore(report_duplicate_map n f_map); ignore(report_duplicate_map n global_scope); ignore(Hashtbl.add f_map n (t, List.length l)); Hashtbl.iter (fun a1 a2 -> check_not_void_map a1 a2) f_map; List.iter (fun a -> ignore(check_expr_legal a f_map)) l; let l' = List.map (fun a -> expr f_map a) l in Sast.ArrDecl(convert_type t, n, l') 
 		
   in
   
@@ -251,17 +280,16 @@ let convert program_list =
   let get_function_type function_name function_line = match function_line with 
        Ast.VarUnit(s) -> Sast.VarUnit(check_vdecl_function function_name s)
      | Ast.StmtUnit(st) -> Sast.StmtUnit(check_stmt function_name st)
-     | _ -> raise (Failure("func decl in function not defined"))
+     | _ -> raise (Failure("this declaration is not defined"))
   in
   
-  let add_formals formal fname = match formal with 
+  (*let add_formals formal fname = match formal with 
         Ast.Decl(t, n) -> let f_map = (try Hashtbl.find function_map fname with Not_found -> raise(Failure("function not in function_map for adding formals"))) in Hashtbl.add f_map n t 
-      | Ast.ArrDecl(t, n, el) -> let f_map = (try Hashtbl.find function_map fname with Not_found -> raise(Failure("function not in function_map for adding formals"))) in List.iter (fun a -> ignore(check_expr_legal a f_map)) el; Hashtbl.add f_map n t 
-  in
+      | Ast.ArrDecl(t, n, el) -> let f_map = (try Hashtbl.find function_map fname with Not_found -> raise(Failure("function not in function_map for adding formals"))) in List.iter (fun a -> ignore(check_expr_legal a f_map)) el; Hashtbl.add f_map n t*)
   
   let add_hash x = match x with 
 	Ast.Decl(t, n) -> (t, n)
-      | Ast.ArrDecl(t, n, el) -> (t, n)
+      | Ast.ArrDecl(t, n, _) -> (t, n)
   in 
   
   let update_maps fd =  
@@ -274,8 +302,8 @@ let convert program_list =
   in
   
   let extract_name formal = match formal with 
-        Ast.Decl(t, n) -> n 
-      | Ast.ArrDecl(t, n, el) -> n
+        Ast.Decl(_, n) -> n 
+      | Ast.ArrDecl(_, n, _) -> n
   in 
 
   let rec resolve_body name body = match body with 
@@ -284,8 +312,8 @@ let convert program_list =
   in 
 
   let check_not_void_general formal = match formal with 
-       Ast.Decl(t, n) -> check_not_void t
-     | Ast.ArrDecl(t, n, el) -> check_not_void t
+       Ast.Decl(t, _) -> check_not_void t
+     | Ast.ArrDecl(t, _, _) -> check_not_void t
 
   in 
 
