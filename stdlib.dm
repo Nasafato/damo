@@ -48,15 +48,15 @@ def eval(symbol a) : num {
 			leftValue = eval(left(a));
 			result = - leftValue;
 		}*/
-		/*else {
+		else {
 			// Crash the program
-			print("Should crash here - invalid symbol operation (eval)");
-		}*/
+			print("Unknown operator");
+		}
 	}
 	return result;
 }
 
-num e = 2.71828;
+num exponentialConstant = 2.71828;
 
 def partialDerivative(symbol out, symbol in) : num {
 	num leftGrad;
@@ -107,13 +107,13 @@ def partialDerivative(symbol out, symbol in) : num {
 				L = eval(left(out));
 				R = eval(right(out));
 				dadL = (R - 1) * L ^ R;
-				dadR = e _ L * L ^ R;
+				dadR = exponentialConstant _ L * L ^ R;
 			}
 			elseif (streq(op, "LOG")){
 				L = eval(left(out));
 				R = eval(right(out));
-				dadL = L _ e / R;
-				dadR = L _ R * L _ e / L;
+				dadL = L _ exponentialConstant / R;
+				dadR = L _ R * L _ exponentialConstant / L;
 			}
 			else {
 				// Crash the program
