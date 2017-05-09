@@ -242,6 +242,15 @@ let translate (program_unit_list) =
             (*| A.Indexing (t, _, _) -> t*)
             | A.Noexpr (t) -> t
         ) in
+      let get_str_op op_t = (match op_t with 
+             AST.Add     -> "PLUS"
+           | AST.Sub     -> "SUB"
+           | AST.Mult    -> "MULT"
+           | AST.Div     -> "DIV"
+           | AST.Exp     -> "EXP"
+           | AST.Log     -> "LOG"
+           | _ -> raise(Failure("Not supported operator"))
+        ) in
     (* Construct code for an expression; return its value *)
     let rec expr builder = function
         A.IntLit(t, i) -> L.const_int i32_t i 
@@ -288,35 +297,27 @@ let translate (program_unit_list) =
                 (* if they are both symbols, then get their names and look them up to
                     get back llvm values *)
                   A.Symbol, A.Symbol -> e1', e2'
-                (*| A.Num, A.Symbol -> 
-                            let e' = L.build_call const_symbol [| s_v1; e_val |] "symbolm" builder in
-                            ignore( L.build_store e' s_v builder); e'*)
+                | A.Num, A.Symbol -> let num_node = (L.build_call symbol_malloc [| |] "symbolmal" builder) in
+                      let e' = L.build_call const_symbol [| num_node; e1' |] "symbolm" builder in (e', e2')
+                | A.Symbol, A.Num -> let num_node = (L.build_call symbol_malloc [| |] "symbolmal" builder) in
+                      let e' = L.build_call const_symbol [| num_node; e2' |] "symbolm" builder in (e1', e')
+                | A.Int, A.Symbol -> let num_node = (L.build_call symbol_malloc [| |] "symbolmal" builder) in
+                      let e' = L.build_call const_symbol [|num_node; (L.build_sitofp e1' num_t "cast" builder) |] 
+                      "symbolm" builder in (e', e2')
+                | A.Symbol, A.Int -> let num_node = (L.build_call symbol_malloc [| |] "symbolmal" builder) in
+                      let e' = L.build_call const_symbol [|num_node; (L.build_sitofp e2' num_t "cast" builder) |] 
+                      "symbolm" builder in (e1', e')
                 | _, _ -> raise(Failure("Not here yet"))
                 )
             | _ -> raise(Failure("Shouldn't be here"))
           )
            in
         let e1_new', e2_new' = binop_type_check(t, e1, e2) in 
-          
-        let get_str_op op_t = (match op with 
-             AST.Add     -> "PLUS"
-           | AST.Sub     -> "SUB"
-           | AST.Mult    -> "MULT"
-           | AST.Div     -> "DIV"
-           | AST.Exp     -> "EXP"
-           | AST.Log     -> "LOG"
-           | _ -> raise(Failure("Not supported operator"))
-        ) in
 
-        if t = A.Symbol then let sym_type = 
-         let t1 = (get_type e1) and t2 = (get_type e2) in 
-          ( match t1, t2 with
-            A.Symbol, A.Symbol -> 
-                let operat = L.build_global_stringptr (get_str_op(op)) "tmp" builder in 
-                let e' = L.build_call root_symbol [| e1_new'; e2_new'; operat |]
-                   "symbolm" builder in  e'
-            | _, _ -> raise(Failure("FUCK ME"))
-          ) in sym_type
+        if t = A.Symbol then let sym_type =  
+            let operat = L.build_global_stringptr (get_str_op(op)) "tmp" builder in 
+            let e' = L.build_call root_symbol [| e1_new'; e2_new'; operat |] "symbolm" builder in  e'
+            in sym_type
         (* Exp and Log are run time functions because they are without llvm equivalents *)
         else if op = AST.Exp then 
         (* For exp functions, if num just call the exp function, else cast int to num
@@ -404,8 +405,8 @@ let translate (program_unit_list) =
       | A.Unop(t, op, e) ->
         let e' = expr builder e in
         (match op with
-           AST.Neg     -> L.build_neg
-         | AST.Not     -> L.build_not) e' "tmp" builder
+           AST.Neg -> L.build_neg
+         | AST.Not -> L.build_not) e' "tmp" builder
       | A.Assign (A.Idl(t, s), e) -> (match t with
                       A.Symbol -> let t_1 = get_type e in
                         (match t_1 with 
