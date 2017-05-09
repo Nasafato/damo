@@ -87,7 +87,9 @@ let translate (program_unit_list) =
                     StringMap.add s ((L.define_global s init the_module), t) m
                  | _ -> let init = L.const_int (ltype_of_typ t) 0 in
                     StringMap.add s ((L.define_global s init the_module),t) m)
-        | _ -> raise(Failure("Illegal Type"))
+        (*| A.ArrDecl (t, s, el) -> let init = L.const_pointer_null (L.i8_type context) in 
+		    StringMap.add s ((L.define_global s init the_module)
+*)	|   _ -> raise(Failure("Illegal Type"))
       )
   in List.fold_left global_var StringMap.empty gvars in 
 (*
@@ -377,12 +379,12 @@ let translate (program_unit_list) =
            | AST.And     -> L.build_and
            | AST.Mod     -> L.build_frem
            | AST.Or      -> L.build_or
-           | AST.Equal   -> L.build_icmp L.Icmp.Eq
-           | AST.Neq     -> L.build_icmp L.Icmp.Ne
-           | AST.Less    -> L.build_icmp L.Icmp.Slt
-           | AST.Leq     -> L.build_icmp L.Icmp.Sle
-           | AST.Greater -> L.build_icmp L.Icmp.Sgt
-           | AST.Geq     -> L.build_icmp L.Icmp.Sge
+           | AST.Equal   -> L.build_fcmp L.Fcmp.Oeq
+           | AST.Neq     -> L.build_fcmp L.Fcmp.One
+           | AST.Less    -> L.build_fcmp L.Fcmp.Olt
+           | AST.Leq     -> L.build_fcmp L.Fcmp.Ole
+           | AST.Greater -> L.build_fcmp L.Fcmp.Ogt
+           | AST.Geq     -> L.build_fcmp L.Fcmp.Oge
            | _ -> raise( IllegalType )
           ) e1_new' e2_new' "tmp" builder in 
 
@@ -485,9 +487,12 @@ let translate (program_unit_list) =
     let rec stmt builder = function
         A.Block(sl) -> List.fold_left stmt builder sl
       | A.Expr(e) -> ignore (expr builder e); builder
-      | A.Return(e) -> ignore (match fdecl.A.s_typ with
+      | A.Return(e) -> 
+	ignore (match fdecl.A.s_typ with
             A.Void -> L.build_ret_void builder
-          | _ -> L.build_ret (expr builder e) builder); builder
+          | _ -> L.build_ret (expr builder e) builder
+	); builder
+
       | A.If (predicate, then_stmt, else_stmt) ->
         let bool_val = expr builder predicate in
         let merge_bb = L.append_block context "merge" the_function in

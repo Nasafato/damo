@@ -1,5 +1,5 @@
 def test(int x): int {
-    if(x==1){
+   if(x==1){
 	return 1;
     } 
 
@@ -8,4 +8,4 @@ def test(int x): int {
     }
 }
 
-test(5);
+print_int(test(5));

@@ -197,6 +197,7 @@ let convert program_list =
             (* NEW only allow for comparison of ints and nums *)
           	| Ast.Equal | Ast.Neq when t1 = t2 && (t1 = Sast.Int || t1 = Sast.Num) -> Sast.Binop(Sast.Bool, e1', op, e2')
           	| Ast.Less | Ast.Leq | Ast.Greater | Ast.Geq when t1 = Sast.Int && t2 = Sast.Int -> Sast.Binop(Sast.Bool, e1', op, e2')
+                | Ast.Less | Ast.Leq | Ast.Greater | Ast.Geq when t1 = Sast.Num && t2 = Sast.Num -> Sast.Binop(Sast.Bool, e1', op, e2')
           	| Ast.And | Ast.Or when t1 = Sast.Bool && t2 = Sast.Bool -> Sast.Binop(Sast.Bool, e1', op, e2')
                   | _ -> raise (Failure ("illegal binary operator "))
         )
@@ -318,7 +319,7 @@ let convert program_list =
   in 
 
   let check_fdecl fd = 
-	ignore(if Hashtbl.mem function_map fd.fname = false then update_maps fd else raise(Failure("duplicate found"))); 
+	ignore(if Hashtbl.mem function_map fd.fname = false then update_maps fd else raise(Failure("duplicate function found"))); 
 
 	report_duplicate (fun n -> "duplicate formal") (List.map (fun x -> extract_name x) fd.formals); 
 	List.iter (fun n -> check_not_void_general n) fd.formals;
