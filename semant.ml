@@ -68,6 +68,7 @@ let convert program_list =
   (*Hashtbl.add function_map_formals "setSymbolValue" [(Ast.Symbol, "x"); (Ast.Num, "y")];*)
   Hashtbl.add function_map_formals "isInitialized" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "value" [(Ast.Symbol, "x")];
+  Hashtbl.add function_map_formals "strcmp" [(Ast.String, "x"); (Ast.String, "y")];
 
   Hashtbl.add function_map_length "print" 1; 
   Hashtbl.add function_map_length "print_int" 1;
@@ -79,7 +80,8 @@ let convert program_list =
   (*Hashtbl.add function_map_length "setSymbolValue" 2;*)
   Hashtbl.add function_map_length "isInitialized" 1;
   Hashtbl.add function_map_length "value" 1;
-
+  Hashtbl.add function_map_length "strcmp" 2;
+  
   Hashtbl.add function_map_type "print" Ast.Void;
   Hashtbl.add function_map_type "print_int" Ast.Void;
   Hashtbl.add function_map_type "print_bool" Ast.Void;
@@ -90,19 +92,8 @@ let convert program_list =
   (*Hashtbl.add function_map_type "setSymbolValue" Ast.Symbol;*)
   Hashtbl.add function_map_type "isInitialized" Ast.Bool;
   Hashtbl.add function_map_type "value" Ast.Num;
- 
-<<<<<<< HEAD
-  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.String; Hashtbl.add function_map "print" new_map; 
-  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Int; Hashtbl.add function_map "print_int" new_map; 
-  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Bool; Hashtbl.add function_map "print_bool" new_map; 
-  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Num; Hashtbl.add function_map "print_num" new_map; 
-  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Symbol; Hashtbl.add function_map "left" new_map; 
-  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Symbol; Hashtbl.add function_map "right" new_map; 
-  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.String; Hashtbl.add function_map "operator" new_map; 
-  (*let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Symbol; Hashtbl.add function_map "setSymbolValue" new_map;*)
-  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Bool; Hashtbl.add function_map "isInitialized" new_map;
-  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" Ast.Symbol; Hashtbl.add function_map "value" new_map;
-=======
+  Hashtbl.add function_map_type "strcmp" Ast.Int;
+  
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add function_map "print" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Int, 0); Hashtbl.add function_map "print_int" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Bool, 0); Hashtbl.add function_map "print_bool" new_map; 
@@ -112,7 +103,11 @@ let convert program_list =
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add function_map "operator" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Bool, 0); Hashtbl.add function_map "isConstant" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "value" new_map;
->>>>>>> a1a4b8807b87c93a077f50cb1ca124f7325843f3
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add new_map "y" (Ast.String, 0); Hashtbl.add function_map "strcmp" new_map;
+
+
+
+
 (*  let printing_functions = ["print" ; "print_int" ; "print_num" ; "print_bool"] in
   let symbol_functions = ["left" ; "right" ; "operator" ; "isConstant" ] in
   let built_in_functions = printing_functions @ symbol_functions in
