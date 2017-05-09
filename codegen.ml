@@ -64,6 +64,9 @@ let translate (program_unit_list) =
     A.s_formals = [];
     A.s_body = List.map (fun x -> A.StmtUnit(x)) topstmts; (*filtered_main_stmts;*)
   } in
+  
+  let array_hash = Hashtbl.create 20 in 
+  let init_hash = Hashtbl.create 20 in 
 
   (* Now build up global variables by parsing the list of globals
       First parse the decls in s_bind:
@@ -88,8 +91,8 @@ let translate (program_unit_list) =
                  | _ -> let init = L.const_int (ltype_of_typ t) 0 in
                     StringMap.add s ((L.define_global s init the_module),t) m)
         (*| A.ArrDecl (t, s, el) -> let init = L.const_pointer_null (L.i8_type context) in 
-		    StringMap.add s ((L.define_global s init the_module)
-*)	|   _ -> raise(Failure("Illegal Type"))
+		    Hashtbl.add array_hash s ((((L.define_global s init the_module), t) m), el)
+	*)|   _ -> raise(Failure("Illegal Type"))
       )
   in List.fold_left global_var StringMap.empty gvars in 
 (*
@@ -222,10 +225,7 @@ let translate (program_unit_list) =
           List.fold_left add_main_local global_vars gvars
       else
           List.fold_left add_local formals locals in
-    let array_hash = Hashtbl.create 20 in 
-
-    let init_hash = Hashtbl.create 20 in 
-    (* Return the value for a variable or formal argument *)
+        (* Return the value for a variable or formal argument *)
     let lookup n = 
       if fdecl.A.s_fname = "main" then 
           try StringMap.find n global_vars
@@ -294,6 +294,7 @@ let translate (program_unit_list) =
                     e2')
                 | A.Bool, A.Bool -> (e1', e2')
                 | A.Int, A.Int -> (e1', e2')
+                | A.Symbol, A.Symbol -> (e1', e2')
                 | _ -> raise(Failure("not matched")))
             |A.Num -> (match t_1, t_2 with 
                   A.Num, A.Num -> (e1', e2')
@@ -302,7 +303,7 @@ let translate (program_unit_list) =
                 | A.Int, A.Num -> (L.build_sitofp e1' num_t "cast" builder, 
                     e2')
                 | A.Bool, A.Bool -> (e1', e2')  
-                | _ -> raise(Failure("not matched")))
+                | _ -> raise(Failure("not matched num")))
             |A.Symbol -> let t1 = get_type e1 and t2 = (get_type e2) in ( match t1, t2 with
                 (* if they are both symbols, then get their names and look them up to
                     get back llvm values *)
@@ -393,7 +394,10 @@ let translate (program_unit_list) =
            | AST.Geq     -> L.build_fcmp L.Fcmp.Oge
            | _ -> raise( IllegalType )
           ) e1_new' e2_new' "tmp" builder in 
-
+	let symbol_bop op = 
+	(match op with 
+	     AST.Equal -> L.build_ptrdiff
+	) e1_new' e2_new' "tmp" builder in 
         let build_ops_with_types t = 
           (match (t) with
             A.Int -> int_bop op
@@ -403,6 +407,7 @@ let translate (program_unit_list) =
               | A.Int, A.Num -> num_bop op
               | A.Num, A.Int -> num_bop op
               | A.Int, A.Int -> int_bop op
+              | A.Symbol, A.Symbol -> L.build_icmp L.Icmp.Eq (L.build_pointercast e1_new' i32_t "e1" builder) (L.build_pointercast e2_new' i32_t "e2" builder) "tmp" builder
               | _, _ -> raise(Failure("Not supported for boolean ops, for strings use strcmp"))
           (*why did you have the extra underscore*)
           | _-> ignore( print_string "build op exception"); num_bop op

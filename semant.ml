@@ -198,6 +198,8 @@ let convert program_list =
           	| Ast.Equal | Ast.Neq when t1 = t2 && (t1 = Sast.Int || t1 = Sast.Num) -> Sast.Binop(Sast.Bool, e1', op, e2')
           	| Ast.Less | Ast.Leq | Ast.Greater | Ast.Geq when t1 = Sast.Int && t2 = Sast.Int -> Sast.Binop(Sast.Bool, e1', op, e2')
                 | Ast.Less | Ast.Leq | Ast.Greater | Ast.Geq when t1 = Sast.Num && t2 = Sast.Num -> Sast.Binop(Sast.Bool, e1', op, e2')
+ 		| Ast.Equal when t1 = Sast.Symbol && t2 = Sast.Symbol -> Sast.Binop(Sast.Bool, e1', op, e2')
+
           	| Ast.And | Ast.Or when t1 = Sast.Bool && t2 = Sast.Bool -> Sast.Binop(Sast.Bool, e1', op, e2')
                   | _ -> raise (Failure ("illegal binary operator "))
         )
