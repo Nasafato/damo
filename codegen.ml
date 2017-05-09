@@ -98,6 +98,8 @@ let translate (program_unit_list) =
   (* Declare printf(), which the print built-in function will call *)
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
+  let string_compare = L.declare_function "strcmp" 
+            ( Llvm.function_type i32_t [| str_t; str_t |]) the_module in
   let symbol_malloc = Llvm.declare_function "createSymbol" 
             ( Llvm.function_type symbol_t [|  |] ) the_module in
   let symbol_const_check = Llvm.declare_function "isConstant" 
@@ -424,7 +426,8 @@ let translate (program_unit_list) =
       | A.Call (t, "print_int", [e]) | A.Call (t, "print_bool", [e]) ->
         L.build_call printf_func [| int_format_str ; (expr builder e) |]
           "printf" builder
-
+      | A.Call (t, "strcompare", [e1; e2]) -> L.build_call string_compare [| (expr builder e1); (expr builder e2) |]
+          "strcmp" builder
       (* Symbol function calls *)
       | A.Call (_, "value", [e]) ->
         L.build_call value_symbol [|  (expr builder e) |]

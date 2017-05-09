@@ -65,10 +65,9 @@ let convert program_list =
   Hashtbl.add function_map_formals "left" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "right" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "operator" [(Ast.Symbol, "x")];
-  (*Hashtbl.add function_map_formals "setSymbolValue" [(Ast.Symbol, "x"); (Ast.Num, "y")];*)
   Hashtbl.add function_map_formals "isInitialized" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "value" [(Ast.Symbol, "x")];
-  Hashtbl.add function_map_formals "strcmp" [(Ast.String, "x"); (Ast.String, "y")];
+  Hashtbl.add function_map_formals "strcompare" [(Ast.String, "x"); (Ast.String, "y")];
 
   Hashtbl.add function_map_length "print" 1; 
   Hashtbl.add function_map_length "print_int" 1;
@@ -77,10 +76,9 @@ let convert program_list =
   Hashtbl.add function_map_length "left" 1;
   Hashtbl.add function_map_length "right" 1;
   Hashtbl.add function_map_length "operator" 1;
-  (*Hashtbl.add function_map_length "setSymbolValue" 2;*)
   Hashtbl.add function_map_length "isInitialized" 1;
   Hashtbl.add function_map_length "value" 1;
-  Hashtbl.add function_map_length "strcmp" 2;
+  Hashtbl.add function_map_length "strcompare" 2;
   
   Hashtbl.add function_map_type "print" Ast.Void;
   Hashtbl.add function_map_type "print_int" Ast.Void;
@@ -89,10 +87,9 @@ let convert program_list =
   Hashtbl.add function_map_type "left" Ast.Symbol;
   Hashtbl.add function_map_type "right" Ast.Symbol;
   Hashtbl.add function_map_type "operator" Ast.String;
-  (*Hashtbl.add function_map_type "setSymbolValue" Ast.Symbol;*)
   Hashtbl.add function_map_type "isInitialized" Ast.Bool;
   Hashtbl.add function_map_type "value" Ast.Num;
-  Hashtbl.add function_map_type "strcmp" Ast.Int;
+  Hashtbl.add function_map_type "strcompare" Ast.Int;
   
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add function_map "print" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Int, 0); Hashtbl.add function_map "print_int" new_map; 
@@ -103,7 +100,7 @@ let convert program_list =
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add function_map "operator" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Bool, 0); Hashtbl.add function_map "isConstant" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "value" new_map;
-  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add new_map "y" (Ast.String, 0); Hashtbl.add function_map "strcmp" new_map;
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add new_map "y" (Ast.String, 0); Hashtbl.add function_map "strcompare" new_map;
 
 
 
@@ -331,7 +328,7 @@ let convert program_list =
       | Ast.StmtUnit(st) -> Sast.StmtUnit(check_stmt "" st)
   in
  
-  List.map get_type program_list;  
+  List.map get_type program_list;
   (*let rec check_types program_list = match program_list with 
         [] -> []
       | head::tail -> let r = get_type head in r::(check_types tail)
