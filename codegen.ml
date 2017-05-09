@@ -154,7 +154,6 @@ let translate (program_unit_list) =
       PREPROCESSING STEP: PARSE FUNCTION BODY INTO VARFUNIT AND STMTFUNIT,
         - GET LIST OF VARFUNIT TO BE PROCESSED BY LOCAL VARS TO GET LOCALS
     *)
-
     let rec fxn_body_decouple f_body decl_l stmt_l  = (match f_body with
         [] -> (decl_l, stmt_l)
       | A.VarUnit(s) :: tail -> fxn_body_decouple tail (decl_l@[s]) stmt_l
@@ -186,8 +185,15 @@ let translate (program_unit_list) =
         StringMap.add n (local, t) m )
     in
       let add_local m x= (match x with 
-          A.Decl(t, n) -> let local_var = L.build_alloca (ltype_of_typ t) n builder
-             in StringMap.add n (local_var, t) m 
+          A.Decl(t, n) -> (match t with
+              A.Symbol -> let variable = L.build_call symbol_malloc [| |] "symbolmal" builder in
+                let v_ptr = symbol_t in let s_ptr= L.build_alloca v_ptr n builder 
+                in ignore(L.build_store variable s_ptr builder);
+                StringMap.add n (s_ptr, t) m 
+
+              | _ -> let local_var = L.build_alloca (ltype_of_typ t) n builder
+              in StringMap.add n (local_var, t) m
+            )
           | A.ArrDecl(t, n, _) -> let local_var = L.build_alloca (ltype_of_typ t) n builder
             in StringMap.add n (local_var, t) m 
       ) in
@@ -396,9 +402,7 @@ let translate (program_unit_list) =
           (*why did you have the extra underscore*)
           | _-> ignore( print_string "build op exception"); num_bop op
           )     
-  	   in 
-
-        (build_ops_with_types t) (*e1_new' e2_new'*)
+  	   in (build_ops_with_types t) (*e1_new' e2_new'*)
       (* end building bin_ops*)
 
       | A.Unop(t, op, e) ->
@@ -420,6 +424,15 @@ let translate (program_unit_list) =
                         | _ -> let e_val = expr builder e in 
                             let (s_v, _) = lookup s in 
                             ignore( L.build_store e_val s_v builder ); e_val )
+                      | A.Num -> let t_1 = get_type e in
+                            (match t_1 with 
+                              A.Num -> let e_val = expr builder e in ignore( let (s_v, _) = (lookup s) in 
+                                                              L.build_store e_val s_v builder); e_val
+                            | A.Int -> let e_val = (L.build_sitofp (expr builder e) num_t "cast" builder) in
+                                          ignore( let (s_v, _) = (lookup s) in 
+                                          L.build_store e_val s_v builder); e_val
+                            | _ -> raise(Failure("No num should have anything but a num or int assigned to it"))
+                          )
                       | _ -> let e' = expr builder e in ignore( let (s_v, _) = (lookup s) in 
                                                               L.build_store e' s_v builder); e')
 
@@ -521,7 +534,7 @@ let translate (program_unit_list) =
     in 
     (* Build the code for each statement in the function *)
     let builder = stmt builder (A.Block stmt_list) in 
-    add_terminal builder (match fdecl.A.s_typ with
+        add_terminal builder (match fdecl.A.s_typ with
           A.Void -> L.build_ret_void
         | t -> L.build_ret (L.const_int (ltype_of_typ t) 0))
   in 
