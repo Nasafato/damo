@@ -91,8 +91,13 @@ Check() {
 
     generatedfiles=""
 
-    generatedfiles="$generatedfiles ${basename}.ll ${basename}.s ${basename}.exe ${basename}.out" &&
-    Run "$DAMO" "<" $1 ">" "${basename}.ll" &&
+    generatedfiles="$generatedfiles ${basename}.dml ${basename}.ll ${basename}.s ${basename}.exe ${basename}.out" &&
+    # Prepend standard library
+    Run "cat" "stdlib.dm" ">" "${basename}.dml" &&
+    Run "cat" $1 ">>" "${basename}.dml" &&
+    # Proceed with compilation
+    #Run "$DAMO" "<" "${basename}.dml" ">" "${basename}.ll" &&
+    Run "$DAMO" "<" $1 ">" "${basename}.ll"
     Run "$LLC" "${basename}.ll" ">" "${basename}.s" &&
     Run "$CC" "-o" "${basename}.exe" "${basename}.s" "printbig.o" "symbol.o" "-lm"&&
     Run "./${basename}.exe" > "${basename}.out" &&

@@ -99,10 +99,15 @@ let translate (program_unit_list) =
   (* Declare printf(), which the print built-in function will call *)
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
+  let string_compare = L.declare_function "strcmp" 
+            ( Llvm.function_type i32_t [| str_t; str_t |]) the_module in
+
+  let symbol_operator = Llvm.declare_function "operator" 
+            ( Llvm.function_type str_t [| symbol_t |] ) the_module in
   let symbol_malloc = Llvm.declare_function "createSymbol" 
             ( Llvm.function_type symbol_t [|  |] ) the_module in
   let symbol_const_check = Llvm.declare_function "isConstant" 
-            ( Llvm.function_type i1_t [| symbol_t |] ) the_module in
+            ( Llvm.function_type i32_t [| symbol_t |] ) the_module in
   let root_symbol = Llvm.declare_function "createRoot"
             ( Llvm.function_type symbol_t [| symbol_t; symbol_t; str_t; |])  the_module in
   let const_symbol = Llvm.declare_function "setSymbolValue" 
@@ -110,7 +115,7 @@ let translate (program_unit_list) =
   let value_symbol = Llvm.declare_function "value" 
             ( Llvm.function_type num_t [| symbol_t |] ) the_module in
   let symbol_init_check = Llvm.declare_function "isInitialized" 
-            ( Llvm.function_type i1_t [| symbol_t |] ) the_module in
+            ( Llvm.function_type i32_t [| symbol_t |] ) the_module in
   let symbol_left = Llvm.declare_function "left" 
             ( Llvm.function_type symbol_t [| symbol_t |] ) the_module in
   let symbol_right = Llvm.declare_function "right" 
@@ -171,7 +176,8 @@ let translate (program_unit_list) =
     let local_vars =
       let add_formal m x p = (match x with
           A.Decl(t, n) -> (match t with 
-            A.Symbol -> L.set_value_name n p; let local = L.build_call symbol_malloc [| |] "symbolm" builder in
+            A.Symbol -> L.set_value_name n p; 
+                      let local = L.build_alloca (ltype_of_typ t) n builder in
                       ignore (L.build_store p local builder);
                       StringMap.add n (local, t) m 
             | _ -> L.set_value_name n p; let local = L.build_alloca (ltype_of_typ t) n builder in
@@ -182,21 +188,16 @@ let translate (program_unit_list) =
         ignore (L.build_store p local builder);
         StringMap.add n (local, t) m )
     in
-
       let add_local m x= (match x with 
           A.Decl(t, n) -> let local_var = L.build_alloca (ltype_of_typ t) n builder
              in StringMap.add n (local_var, t) m 
           | A.ArrDecl(t, n, _) -> let local_var = L.build_alloca (ltype_of_typ t) n builder
             in StringMap.add n (local_var, t) m 
-
       ) in
-
-      (*
-        Most global variables were declared at the top, but side i didn't have a builder for
+      (* Most global variables were declared at the top, but side i didn't have a builder for
         the global context, this fuction mallocs all the global symbols and adds back to the 
-        global map. all other variables are left unchanged
-      *)
-      let add_main_local m x=(match x with 
+        global map. all other variables are left unchanged *)
+      let add_main_local m x = (match x with 
           A.Decl(t, n) -> (match t with
             A.Symbol -> let global_variable = L.build_call symbol_malloc [| |] "symbolmal" builder in
                 let (s_v, _) = lookup_global n in ignore(L.build_store global_variable s_v builder);
@@ -242,6 +243,15 @@ let translate (program_unit_list) =
             | A.Call (t, _ , _) -> t
             (*| A.Indexing (t, _, _) -> t*)
             | A.Noexpr (t) -> t
+        ) in
+      let get_str_op op_t = (match op_t with 
+             AST.Add     -> "PLUS"
+           | AST.Sub     -> "SUB"
+           | AST.Mult    -> "MULT"
+           | AST.Div     -> "DIV"
+           | AST.Exp     -> "EXP"
+           | AST.Log     -> "LOG"
+           | _ -> raise(Failure("Not supported operator"))
         ) in
     (* Construct code for an expression; return its value *)
     let rec expr builder = function
@@ -289,35 +299,27 @@ let translate (program_unit_list) =
                 (* if they are both symbols, then get their names and look them up to
                     get back llvm values *)
                   A.Symbol, A.Symbol -> e1', e2'
-                (*| A.Num, A.Symbol -> 
-                            let e' = L.build_call const_symbol [| s_v1; e_val |] "symbolm" builder in
-                            ignore( L.build_store e' s_v builder); e'*)
+                | A.Num, A.Symbol -> let num_node = (L.build_call symbol_malloc [| |] "symbolmal" builder) in
+                      let e' = L.build_call const_symbol [| num_node; e1' |] "symbolm" builder in (e', e2')
+                | A.Symbol, A.Num -> let num_node = (L.build_call symbol_malloc [| |] "symbolmal" builder) in
+                      let e' = L.build_call const_symbol [| num_node; e2' |] "symbolm" builder in (e1', e')
+                | A.Int, A.Symbol -> let num_node = (L.build_call symbol_malloc [| |] "symbolmal" builder) in
+                      let e' = L.build_call const_symbol [|num_node; (L.build_sitofp e1' num_t "cast" builder) |] 
+                      "symbolm" builder in (e', e2')
+                | A.Symbol, A.Int -> let num_node = (L.build_call symbol_malloc [| |] "symbolmal" builder) in
+                      let e' = L.build_call const_symbol [|num_node; (L.build_sitofp e2' num_t "cast" builder) |] 
+                      "symbolm" builder in (e1', e')
                 | _, _ -> raise(Failure("Not here yet"))
                 )
             | _ -> raise(Failure("Shouldn't be here"))
           )
            in
         let e1_new', e2_new' = binop_type_check(t, e1, e2) in 
-          
-        let get_str_op op_t = (match op with 
-             AST.Add     -> "PLUS"
-           | AST.Sub     -> "SUB"
-           | AST.Mult    -> "MULT"
-           | AST.Div     -> "DIV"
-           | AST.Exp     -> "EXP"
-           | AST.Log     -> "LOG"
-           | _ -> raise(Failure("Not supported operator"))
-        ) in
 
-        if t = A.Symbol then let sym_type = 
-         let t1 = (get_type e1) and t2 = (get_type e2) in 
-          ( match t1, t2 with
-            A.Symbol, A.Symbol -> 
-                let operat = L.build_global_stringptr (get_str_op(op)) "tmp" builder in 
-                let e' = L.build_call root_symbol [| e1_new'; e2_new'; operat |]
-                   "symbolm" builder in  e'
-            | _, _ -> raise(Failure("FUCK ME"))
-          ) in sym_type
+        if t = A.Symbol then let sym_type =  
+            let operat = L.build_global_stringptr (get_str_op(op)) "tmp" builder in 
+            let e' = L.build_call root_symbol [| e1_new'; e2_new'; operat |] "symbolm" builder in  e'
+            in sym_type
         (* Exp and Log are run time functions because they are without llvm equivalents *)
         else if op = AST.Exp then 
         (* For exp functions, if num just call the exp function, else cast int to num
@@ -405,8 +407,8 @@ let translate (program_unit_list) =
       | A.Unop(t, op, e) ->
         let e' = expr builder e in
         (match op with
-           AST.Neg     -> L.build_neg
-         | AST.Not     -> L.build_not) e' "tmp" builder
+           AST.Neg -> L.build_neg
+         | AST.Not -> L.build_not) e' "tmp" builder
       | A.Assign (A.Idl(t, s), e) -> (match t with
                       A.Symbol -> let t_1 = get_type e in
                         (match t_1 with 
@@ -430,6 +432,9 @@ let translate (program_unit_list) =
       | A.Call (t, "print_int", [e]) | A.Call (t, "print_bool", [e]) ->
         L.build_call printf_func [| int_format_str ; (expr builder e) |]
           "printf" builder
+      | A.Call (t, "strcompare", [e1; e2]) -> L.build_call string_compare [| (expr builder e1); (expr builder e2) |]
+          "strcmp" builder
+
 
       (* Symbol function calls *)
       | A.Call (_, "value", [e]) ->
@@ -447,6 +452,9 @@ let translate (program_unit_list) =
       | A.Call (_, "right", [e]) ->
         L.build_call symbol_right [|  (expr builder e) |]
           "symbol_right_call" builder
+      | A.Call (_, "operator", [e]) ->
+        L.build_call symbol_operator [|  (expr builder e) |]
+          "symbol_operator" builder
 
       | A.Call (_, "print_num", [e]) ->
         L.build_call printf_func [| float_format_str ; (expr builder e) |]
@@ -524,17 +532,3 @@ let translate (program_unit_list) =
   List.iter build_function_body functions; the_module
 
 
-
-(*
-
-//symbol a;
-
-
-//a = 1.0;
-
-//symbol b = 3.0;
-
-//value( a );
-//print_bool( isConstant(a) );
-//print_bool( isInitialized(a) );
-*)
