@@ -64,12 +64,12 @@ def partialDerivative(symbol out, symbol in) : num {
 	num leftGrad;
 	num rightGrad;
 	string op;
-	num dadL;
-	num dadR;
+	num dadL = 0;
+	num dadR = 0;
 	num L;
 	num R;
 	num result;
-
+	
 	if (isConstant(out) == 1){
 		if (out == in){
 			result = 1.0;
@@ -77,6 +77,9 @@ def partialDerivative(symbol out, symbol in) : num {
 		else{
 			result = 0.0;
 		}
+	}
+	elseif(isInitialized(out) != 1){
+		print("Attempting to differentiate uninitialized symbol");
 	}
 	else{
 		op = operator(out);
@@ -95,7 +98,7 @@ def partialDerivative(symbol out, symbol in) : num {
 			}
 			elseif (streq(op, "MINUS")){
 				dadL = 1;
-				dadR = -1;
+				dadR = 0.0 - 1.0;
 			}
 			elseif (streq(op, "TIMES")){
 				dadL = eval(right(out));
@@ -108,14 +111,22 @@ def partialDerivative(symbol out, symbol in) : num {
 			elseif (streq(op, "EXP")){
 				L = eval(left(out));
 				R = eval(right(out));
-				dadL = (R - 1) * L ^ R;
-				dadR = exponentialConstant _ L * L ^ R;
+				if (leftGrad != 0.0){
+					dadL = R * (L ^ (R - 1));
+				}
+				if (rightGrad != 0.0){
+					dadR = (exponentialConstant _ L) * (L ^ R);
+				}
 			}
 			elseif (streq(op, "LOG")){
 				L = eval(left(out));
 				R = eval(right(out));
-				dadL = L _ exponentialConstant / R;
-				dadR = L _ R * L _ exponentialConstant / L;
+				if (leftGrad != 0.0){
+					dadL = (L _ R) * (L _ exponentialConstant) / L;
+				}
+				if (rightGrad != 0.0){
+					dadR = (L _ exponentialConstant) / R;
+				}	
 			}
 			else {
 				// Crash the program
@@ -126,101 +137,3 @@ def partialDerivative(symbol out, symbol in) : num {
 	}
 	return result;
 }
-
-/*
-def binaryChainRule(num dadL, num dadR, num leftGrad[], num rightGrad[], int n) : num[] {
-	num grad[n];
-	int i;
-	for (i = 0; i < n; i = i + 1){
-		grad[i] = dadL * leftGrad[i] + dadR * rightGrad[i];
-	}
-	return grad;
-}
-
-def unaryChainRule(num dadL, num leftGrad[], int n) : num[] {
-	num grad[n];
-	int i;
-	for (i = 0; i < n; i = i + 1){
-		grad[i] = dadL * leftGrad[i];
-	}
-	return grad;
-}
-
-def gradOfConstant(symbol a, symbol b[], int n) : num[] {
-	num grad[n];
-	int i;
-	for (i = 0; i < n; i = i + 1){
-		if (a == b[i]){
-			grad[i] = 1;
-		}
-		else {
-			grad[i] = 0;
-		}
-	}
-	return grad;
-}
-
-def gradient(symbol a, symbol b[], int n) : num[] {
-	num dadL;
-	num dadR;
-	num L;
-	num R;
-	num leftGrad[n];
-	num rightGrad[n];
-	string op;
-
-	if (isConstant(a)){
-		return gradOfConstant(a, b, n);
-	}
-	elseif (isNaked(a)){
-		// Crash program
-
-	}
-	else {
-		op = operator(a);
-		if (streq(op, "NEGATIVE")){
-			leftGrad = gradient(left(a), b, n);
-			dadL = -1;
-			return unaryChainRule(dadL, leftGrad, n);
-		}
-		else {
-			leftGrad = gradient(left(a), b, n);
-			rightGrad = gradient(right(a), b, n);
-				
-			if (streq(op, "PLUS"){
-				dadL = 1;
-				dadR = 1;
-			}
-			elseif (streq(op, "MINUS")){
-				dadL = 1;
-				dadR = -1;
-			}
-			elseif (streq(op, "TIMES")){
-				dadL = eval(right(a));
-				dadR = eval(left(a));
-			}
-			elseif (streq(op, "DIVIDE")){
-				dadL = 1 / eval(right(a));
-				dadR = - eval(left(a)) / (eval(right(a)) ^ 2);
-			}
-			elseif (streq(op, "EXP")){
-				L = eval(left(a));
-				R = eval(right(a));
-				dadL = (R - 1) * L ^ R;
-				dadR = exp() _ L * L ^ R;
-			}
-			elseif (streq(op, "LOG")){
-				L = eval(left(a));
-				R = eval(right(a));
-				dadL = L _ exp() / R;
-				dadR = L _ R * L _ exp() / L;
-			}
-			else {
-				// Crash the program
-				print("Should crash here - invalid symbol operation (eval)");
-			}
-			return binaryChainRule(dadL, dadR, leftGrad, rightGrad, n);
-		}
-	}
-}
-*/
