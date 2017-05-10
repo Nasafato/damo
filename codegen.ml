@@ -64,9 +64,9 @@ let translate (program_unit_list) =
     A.s_formals = [];
     A.s_body = List.map (fun x -> A.StmtUnit(x)) topstmts; (*filtered_main_stmts;*)
   } in
-  
-  let array_hash = Hashtbl.create 20 in 
-  let init_hash = Hashtbl.create 20 in 
+
+  let g_alloc = Hashtbl.create 20 in 
+   
 
   (* Now build up global variables by parsing the list of globals
       First parse the decls in s_bind:
@@ -79,20 +79,20 @@ let translate (program_unit_list) =
           A.Decl( t, s ) -> 
               (match t with
                    A.Int -> let init = L.const_int (ltype_of_typ t) 0 in
-                    StringMap.add s ((L.define_global s init the_module),t) m
+                    StringMap.add s ((L.define_global s init the_module),t, [A.Noexpr(t)]) m
                  | A.Num -> let init = L.const_float (ltype_of_typ t) 0.0 in
-                    StringMap.add s ((L.define_global s init the_module),t) m
+                    StringMap.add s ((L.define_global s init the_module),t, [A.Noexpr(t)]) m
                  | A.String -> let init = L.const_pointer_null (ltype_of_typ t) in
-                    StringMap.add s ((L.define_global s init the_module),t) m
+                    StringMap.add s ((L.define_global s init the_module),t, [A.Noexpr(t)]) m
                  | A.Bool -> let init = L.const_int (ltype_of_typ t) 0 in
-                    StringMap.add s ((L.define_global s init the_module),t) m
+                    StringMap.add s ((L.define_global s init the_module),t, [A.Noexpr(t)]) m
                  | A.Symbol -> let init = L.const_pointer_null (*(L.i8_type context)*) symbol_t in 
-                    StringMap.add s ((L.define_global s init the_module), t) m
+                    StringMap.add s ((L.define_global s init the_module), t, [A.Noexpr(t)]) m
                  | _ -> let init = L.const_int (ltype_of_typ t) 0 in
-                    StringMap.add s ((L.define_global s init the_module),t) m)
-        (*| A.ArrDecl (t, s, el) -> let init = L.const_pointer_null (L.i8_type context) in 
-		    Hashtbl.add array_hash s ((((L.define_global s init the_module), t) m), el)
-	*)|   _ -> raise(Failure("Illegal Type"))
+                    StringMap.add s ((L.define_global s init the_module),t, [A.Noexpr(t)]) m)
+        | A.ArrDecl (t, s, el) -> let init = L.const_pointer_null (L.i8_type context) in 
+		    StringMap.add s ((L.define_global s init the_module),t, el) m
+	|   _ -> raise(Failure("Illegal Type"))
       )
   in List.fold_left global_var StringMap.empty gvars in 
 (*
@@ -186,27 +186,27 @@ let translate (program_unit_list) =
             A.Symbol -> L.set_value_name n p; 
                       let local = L.build_alloca (ltype_of_typ t) n builder in
                       ignore (L.build_store p local builder);
-                      StringMap.add n (local, t) m 
+                      StringMap.add n (local, t, [Sast.Noexpr(t)]) m 
             | _ -> L.set_value_name n p; let local = L.build_alloca (ltype_of_typ t) n builder in
                       ignore (L.build_store p local builder);
-                      StringMap.add n (local, t) m )
-        | A.ArrDecl(t,n,_) -> L.set_value_name n p;  
+                      StringMap.add n (local, t, [Sast.Noexpr(t)]) m )
+        | A.ArrDecl(t,n,el) -> L.set_value_name n p;  
         let local = L.build_alloca (ltype_of_typ t) n builder in
         ignore (L.build_store p local builder);
-        StringMap.add n (local, t) m )
+        StringMap.add n (local, t, el) m )
     in
       let add_local m x= (match x with 
           A.Decl(t, n) -> (match t with
               A.Symbol -> let variable = L.build_call symbol_malloc [| |] "symbolmal" builder in
                 let v_ptr = symbol_t in let s_ptr= L.build_alloca v_ptr n builder 
                 in ignore(L.build_store variable s_ptr builder);
-                StringMap.add n (s_ptr, t) m 
+                StringMap.add n (s_ptr, t, [Sast.Noexpr(t)]) m 
 
               | _ -> let local_var = L.build_alloca (ltype_of_typ t) n builder
-              in StringMap.add n (local_var, t) m
+              in StringMap.add n (local_var, t, [Sast.Noexpr(t)]) m
             )
-          | A.ArrDecl(t, n, _) -> let local_var = L.build_alloca (ltype_of_typ t) n builder
-            in StringMap.add n (local_var, t) m 
+          | A.ArrDecl(t, n, el) -> let local_var = L.build_alloca (ltype_of_typ t) n builder
+            in StringMap.add n (local_var, t, el) m 
       ) in
       (* Most global variables were declared at the top, but side i didn't have a builder for
         the global context, this fuction mallocs all the global symbols and adds back to the 
@@ -214,13 +214,12 @@ let translate (program_unit_list) =
       let add_main_local m x = (match x with 
           A.Decl(t, n) -> (match t with
             A.Symbol -> let global_variable = L.build_call symbol_malloc [| |] "symbolmal" builder in
-                let (s_v, _) = lookup_global n in ignore(L.build_store global_variable s_v builder);
+                let (s_v, _, _) = lookup_global n in ignore(L.build_store global_variable s_v builder);
                 m
             | _ -> m
           )
-          | A.ArrDecl(t, n, _) -> let local_var = L.build_alloca (ltype_of_typ t) n builder
-            in StringMap.add n (local_var, t) m 
-      ) in
+          | A.ArrDecl(t, n, _) -> let (_,_,new_el) = lookup_global n in let new_el' = L.const_int (ltype_of_typ t) 100 in let array_t = (L.build_array_alloca (ltype_of_typ t) new_el' "arr" builder) in ignore(Hashtbl.add g_alloc n array_t); m) 
+      in
 
       let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.s_formals
           (Array.to_list (L.params the_function)) in
@@ -236,7 +235,6 @@ let translate (program_unit_list) =
       else
         try StringMap.find n local_vars
         with Not_found -> try StringMap.find n global_vars
-        with Not_found -> try Hashtbl.find init_hash n
         with Not_found -> raise (Failure ("not defined yet")) 
     in
       let get_type node = (match node with
@@ -272,7 +270,8 @@ let translate (program_unit_list) =
       | A.StringLit(t, st) -> L.build_global_stringptr st "tmp" builder 
       | A.NumLit(t, num) -> L.const_float num_t num
       | A.Noexpr(t) -> L.const_int i32_t 0
-      | A.Id(t, s) -> let (s_v,_) = lookup s in L.build_load s_v s builder
+      | A.Id(t, s) -> let (s_v,_, _) = lookup s in L.build_load s_v s builder
+      | A.ArrId(t, s, el) -> let pointer = Hashtbl.find g_alloc s in let el' = expr builder (List.nth el 0) in L.build_load (L.build_gep pointer [| el' |] "tmp" builder) "val" builder
       (*| A.Indexing (t,n, e) -> let (pointer,_) = Hashtbl.find array_hash n in
 		let e' = expr builder e in 
 		L.build_load (L.build_gep pointer [| e' |] "tmp" builder) "val" builder
@@ -426,31 +425,30 @@ let translate (program_unit_list) =
                       A.Symbol -> let t_1 = get_type e in
                         (match t_1 with 
                           A.Num -> let e_val = expr builder e in
-                            let (s_v, _) = (lookup s) in let s_v1 = L.build_load s_v s builder in
+                            let (s_v, _, _) = (lookup s) in let s_v1 = L.build_load s_v s builder in
                             let e' = L.build_call const_symbol [| s_v1; e_val |] "symbolm" builder in
                             ignore( L.build_store e' s_v builder); e'
                         | A.Int -> let e_val = L.build_sitofp (expr builder e) num_t "cast" builder in
-                            let (s_v, _) = (lookup s) in let s_v1  =  L.build_load s_v s builder in
+                            let (s_v, _, _) = (lookup s) in let s_v1  =  L.build_load s_v s builder in
                             let e' = L.build_call const_symbol [| s_v1; e_val |] "symbolm" builder in
                             ignore( L.build_store e' s_v builder); e'
                         | _ -> let e_val = expr builder e in 
-                            let (s_v, _) = lookup s in 
+                            let (s_v, _, _) = lookup s in 
                             ignore( L.build_store e_val s_v builder ); e_val )
                       | A.Num -> let t_1 = get_type e in
                             (match t_1 with 
-                              A.Num -> let e_val = expr builder e in ignore( let (s_v, _) = (lookup s) in 
+                              A.Num -> let e_val = expr builder e in ignore( let (s_v, _, _) = (lookup s) in 
                                                               L.build_store e_val s_v builder); e_val
                             | A.Int -> let e_val = (L.build_sitofp (expr builder e) num_t "cast" builder) in
-                                          ignore( let (s_v, _) = (lookup s) in 
+                                          ignore( let (s_v, _, _) = (lookup s) in 
                                           L.build_store e_val s_v builder); e_val
                             | _ -> raise(Failure("No num should have anything but a num or int assigned to it"))
                           )
-                      | _ -> let e' = expr builder e in ignore( let (s_v, _) = (lookup s) in 
+                      | _ -> let e' = expr builder e in ignore( let (s_v, _, _) = (lookup s) in 
                                                               L.build_store e' s_v builder); e')
 
 
-      | A.Assign (A.ArrIdl(t, s, el), e) -> let e' = expr builder e in ignore( let (s_v, _) = (lookup s) in
-                                                              L.build_store e' s_v builder); e' 
+      | A.Assign (A.ArrIdl(t, s, el), e) -> if Hashtbl.mem g_alloc s then (let pointer = Hashtbl.find g_alloc s in let el' = expr builder (List.nth el 0) in let e' = expr builder e in ignore(L.build_store e' (L.build_gep pointer [| el' |] "tmp" builder) builder); e') else (let (array_t,_,new_el) = lookup s in let new_el' = expr builder (List.nth new_el 0) in let array_t = (L.build_array_malloc (ltype_of_typ t) new_el' "arr" builder) in ignore(Hashtbl.add g_alloc s array_t); let el' = expr builder (List.nth el 0) in let e' = expr builder e in ignore(L.build_store e' (L.build_gep array_t [| el' |] "tmp" builder) builder); e') 
       | A.Call (t, "print_int", [e]) | A.Call (t, "print_bool", [e]) ->
         L.build_call printf_func [| int_format_str ; (expr builder e) |]
           "printf" builder
