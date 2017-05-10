@@ -82,7 +82,7 @@ let string_of_uop = function
   | Not -> "!"
 
 (* NEW printing strings with quotes *)
-let rec string_of_expr = function
+(*let rec string_of_expr = function
     IntLit(l) -> string_of_int l
   | BoolLit(true) -> "true"
   | BoolLit(false) -> "false"
@@ -95,7 +95,7 @@ let rec string_of_expr = function
   | Call(f, el) ->
       f ^ "(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
   | Noexpr -> ""
-
+*)
 (* NEW print string, print num *)
 let string_of_typ = function
     Int -> "int"

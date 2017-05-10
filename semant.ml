@@ -53,7 +53,7 @@ let convert program_list =
       | Sast.ArrId(t, _, _)       -> t
       | Sast.Unop(t, _, _)        -> t 
       | Sast.Call(t, _, _)        -> t
-      
+      | _                         -> raise(Failure("cannot extract type for this"))
   in
  
   (*Hashtbl.add global_scope "test" (Ast.String, 0);*)
@@ -150,16 +150,15 @@ let convert program_list =
       (Sast.Symbol, Sast.Int) -> Sast.Symbol
     | (Sast.Symbol, Sast.Num) -> Sast.Symbol
     | (Sast.Num, Sast.Int) -> Sast.Num
-    | (t1, t2) -> if lvaluet = rvaluet then lvaluet else raise err in
+    | (_, _) -> if lvaluet = rvaluet then lvaluet else raise err in
 
   (* global scope record for all global variables *) 
    
   let type_of_identifier s env =
       
       try Hashtbl.find env s
-      with 
-	| Not_found -> try Hashtbl.find global_scope s with Not_found -> raise (Failure("undeclared identifier " ^s))
-        | Not_found -> raise (Failure ("undeclared identifier " ^ s))
+      with Not_found -> try Hashtbl.find global_scope s with Not_found -> raise (Failure("undeclared identifier " ^s))
+       
   in
   
   let find_func fname =  
@@ -323,7 +322,7 @@ let convert program_list =
   let check_fdecl fd = 
 	ignore(if Hashtbl.mem function_map fd.fname = false then update_maps fd else raise(Failure("duplicate function found"))); 
 
-	report_duplicate (fun n -> "duplicate formal") (List.map (fun x -> extract_name x) fd.formals); 
+	report_duplicate (fun _ -> "duplicate formal") (List.map (fun x -> extract_name x) fd.formals); 
 	List.iter (fun n -> check_not_void_general n) fd.formals;
         (*resolve all formals, resolve function body, return a Sast type of FuncUnit with new values*)
 	let func_formals = List.map (fun a -> check_vdecl_function fd.fname a) fd.formals and

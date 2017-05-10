@@ -14,6 +14,7 @@ let _ =
   (*Semant.check ast;*)
   match action with
     (*Ast -> print_string (Ast.string_of_program ast)*)
+    Ast -> ignore()
   | LLVM_IR -> print_string (Llvm.string_of_llmodule (Codegen.translate (Semant.convert ast)))
   | Compile -> let m = Codegen.translate (Semant.convert ast) in
     Llvm_analysis.assert_valid_module m;
