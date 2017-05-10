@@ -1,0 +1,4 @@
+if (false) {
+    print(42);
+}
+print(17);
