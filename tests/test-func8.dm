@@ -1,5 +1,5 @@
 def foo(int a) : void {
-    print(a + 3);
+    print_int(a + 3);
 }
 
 foo(40);

@@ -2,4 +2,4 @@ def foo(int a): int {
     return a;
 }
 
-print(foo(5));
+print_int(foo(5));

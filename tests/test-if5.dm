@@ -1,4 +1,4 @@
 if (false) {
-    print(42);
+    print_int(42);
 }
-print(17);
+print_int(17);

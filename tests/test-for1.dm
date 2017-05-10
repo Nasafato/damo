@@ -1,5 +1,5 @@
 int i;
 for (i = 0; i < 5; i = i + 1) {
-    print(i);
+    print_int(i);
 }
-print(42);
+print_int(42);

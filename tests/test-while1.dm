@@ -8,4 +8,4 @@ def foo(int a): int {
   return j;
 }
 
-print(foo(7));
+print_int(foo(7));
