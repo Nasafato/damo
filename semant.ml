@@ -68,6 +68,8 @@ let convert program_list =
   Hashtbl.add function_map_formals "isInitialized" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "value" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "strcompare" [(Ast.String, "x"); (Ast.String, "y")];
+  Hashtbl.add function_map_formals "absInt" [(Ast.Int, "x")];
+  Hashtbl.add function_map_formals "absNum" [(Ast.Num, "x")];
   Hashtbl.add function_map_formals "isConstant" [(Ast.Symbol, "x")];
   Hashtbl.add function_map_formals "operator" [(Ast.Symbol, "x")];
 
@@ -81,6 +83,8 @@ let convert program_list =
   Hashtbl.add function_map_length "isInitialized" 1;
   Hashtbl.add function_map_length "value" 1;
   Hashtbl.add function_map_length "strcompare" 2;
+  Hashtbl.add function_map_length "absInt" 1;
+  Hashtbl.add function_map_length "absNum" 1;
   Hashtbl.add function_map_length "operator" 1;
   Hashtbl.add function_map_length "isConstant" 1;
 
@@ -94,6 +98,8 @@ let convert program_list =
   Hashtbl.add function_map_type "isInitialized" Ast.Int;
   Hashtbl.add function_map_type "value" Ast.Num;
   Hashtbl.add function_map_type "strcompare" Ast.Int;
+  Hashtbl.add function_map_type "absInt" Ast.Int;
+  Hashtbl.add function_map_type "absNum" Ast.Num;
   Hashtbl.add function_map_type "isConstant" Ast.Int;
   Hashtbl.add function_map_type "operator" Ast.String;
 
@@ -106,6 +112,8 @@ let convert program_list =
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "isConstant" new_map; 
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "value" new_map;
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.String, 0); Hashtbl.add new_map "y" (Ast.String, 0); Hashtbl.add function_map "strcompare" new_map;
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Int, 0); Hashtbl.add function_map "absInt" new_map;
+  let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Num, 0); Hashtbl.add function_map "absNum" new_map;
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "operator" new_map;
   let new_map = Hashtbl.create 10 in Hashtbl.add new_map "x" (Ast.Symbol, 0); Hashtbl.add function_map "isInitialized" new_map; 
 

@@ -10,7 +10,9 @@ def eval(symbol a) : num {
 	if (isConstant(a) == 1){
 		result = value(a);
 	}
-	// TODO check if initialized - if not, crash
+	elseif (isInitialized(a) != 1){
+		print("Evaluating an uninitialized symbol");
+	}
 	else {
 		op = operator(a);
 		if (streq(op, "PLUS")){

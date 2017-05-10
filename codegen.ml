@@ -106,7 +106,10 @@ let translate (program_unit_list) =
   let printf_func = L.declare_function "printf" printf_t the_module in
   let string_compare = L.declare_function "strcmp" 
             ( Llvm.function_type i32_t [| str_t; str_t |]) the_module in
-
+  let abs_int = L.declare_function "abs"
+            ( Llvm.function_type i32_t [| i32_t |]) the_module in
+  let abs_num = L.declare_function "fabs"
+            ( Llvm.function_type num_t [| num_t |]) the_module in
   let symbol_operator = Llvm.declare_function "operator" 
             ( Llvm.function_type str_t [| symbol_t |] ) the_module in
   let symbol_malloc = Llvm.declare_function "createSymbol" 
@@ -408,8 +411,7 @@ let translate (program_unit_list) =
               | A.Num, A.Int -> num_bop op
               | A.Int, A.Int -> int_bop op
               | A.Symbol, A.Symbol -> L.build_icmp L.Icmp.Eq (L.build_pointercast e1_new' i32_t "e1" builder) (L.build_pointercast e2_new' i32_t "e2" builder) "tmp" builder
-              | _, _ -> raise(Failure("Not supported for boolean ops, for strings use strcmp"))
-          (*why did you have the extra underscore*)
+              | _, _ -> raise(Failure("Unsupported usage of comparison operator"))
           | _-> ignore( print_string "build op exception"); num_bop op
           )     
   	   in (build_ops_with_types t) (*e1_new' e2_new'*)
@@ -454,6 +456,10 @@ let translate (program_unit_list) =
           "printf" builder
       | A.Call (t, "strcompare", [e1; e2]) -> L.build_call string_compare [| (expr builder e1); (expr builder e2) |]
           "strcmp" builder
+      | A.Call (t, "absInt", [e]) -> L.build_call abs_int [| (expr builder e) |]
+          "absint" builder
+      | A.Call (t, "absNum", [e]) -> L.build_call abs_num [| (expr builder e) |]
+          "absnum" builder
 
 
       (* Symbol function calls *)
