@@ -97,7 +97,6 @@ Check() {
     Run "cat" $1 ">>" "${basename}.dml" &&
     # Proceed with compilation
     Run "$DAMO" "<" "${basename}.dml" ">" "${basename}.ll" &&
-    #Run "$DAMO" "<" $1 ">" "${basename}.ll"
     Run "$LLC" "${basename}.ll" ">" "${basename}.s" &&
     Run "$CC" "-o" "${basename}.exe" "${basename}.s" "printbig.o" "symbol.o" "-lm"&&
     Run "./${basename}.exe" > "${basename}.out" &&
