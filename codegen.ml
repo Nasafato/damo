@@ -82,7 +82,6 @@ let translate (program_unit_list) =
                     StringMap.add s ((L.define_global s init the_module),t, [A.Noexpr(t)]) m)
         | A.ArrDecl (t, s, el) -> let init = L.const_pointer_null (L.i8_type context) in 
 		    StringMap.add s ((L.define_global s init the_module),t, el) m
-	|   _ -> raise(Failure("Illegal Type"))
       )
   in List.fold_left global_var StringMap.empty gvars in 
 (*
@@ -207,7 +206,7 @@ let translate (program_unit_list) =
                 m
             | _ -> m
           )
-          | A.ArrDecl(t, n, _) -> let (_,_,new_el) = lookup_global n in let new_el' = L.const_int (ltype_of_typ t) 100 in let array_t = (L.build_array_alloca (ltype_of_typ t) new_el' "arr" builder) in ignore(Hashtbl.add g_alloc n array_t); m) 
+          | A.ArrDecl(t, n, _) -> let new_el' = L.const_int (ltype_of_typ t) 100 in let array_t = (L.build_array_alloca (ltype_of_typ t) new_el' "arr" builder) in ignore(Hashtbl.add g_alloc n array_t); m) 
       in
 
       let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.s_formals
@@ -237,7 +236,7 @@ let translate (program_unit_list) =
             | A.Unop (t, _, _) -> t
             | A.Assign (lvalue, _) -> (match lvalue with 
                A.Idl(t, _) -> t
-              | A.ArrIdl(t, _, el) -> t)  
+              | A.ArrIdl(t, _, _) -> t)  
             | A.Call (t, _ , _) -> t
             | A.Noexpr (t) -> t
         ) in
@@ -253,18 +252,14 @@ let translate (program_unit_list) =
 
     (* Construct code for an expression; return its value *)
     let rec expr builder = function
-        A.IntLit(t, i) -> L.const_int i32_t i 
-      | A.BoolLit(t, b) -> L.const_int i1_t (if b then 1 else 0)
-      | A.StringLit(t, st) -> L.build_global_stringptr st "tmp" builder 
-      | A.NumLit(t, num) -> L.const_float num_t num
-      | A.Noexpr(t) -> L.const_int i32_t 0
-      | A.Id(t, s) -> let (s_v,_, _) = lookup s in L.build_load s_v s builder
-      | A.ArrId(t, s, el) -> let pointer = Hashtbl.find g_alloc s in let el' = expr builder (List.nth el 0) in L.build_load (L.build_gep pointer [| el' |] "tmp" builder) "val" builder
+        A.IntLit(_, i) -> L.const_int i32_t i 
+      | A.BoolLit(_, b) -> L.const_int i1_t (if b then 1 else 0)
+      | A.StringLit(_, st) -> L.build_global_stringptr st "tmp" builder 
+      | A.NumLit(_, num) -> L.const_float num_t num
+      | A.Noexpr(_) -> L.const_int i32_t 0
+      | A.Id(_, s) -> let (s_v,_, _) = lookup s in L.build_load s_v s builder
+      | A.ArrId(_, s, el) -> let pointer = Hashtbl.find g_alloc s in let el' = expr builder (List.nth el 0) in L.build_load (L.build_gep pointer [| el' |] "tmp" builder) "val" builder
       | A.Binop (t, e1, op, e2) ->
-        let get_name e_xp = (match e_xp with
-          A.Id( _, n ) -> n
-          | _ -> raise(Failure("WHY IS THIS NOT AN ID"))
-        ) in
         let e1' = expr builder e1
         and e2' = expr builder e2 in
         let t_1 = get_type( e1 )
@@ -371,28 +366,24 @@ let translate (program_unit_list) =
            | AST.Greater -> L.build_fcmp L.Fcmp.Ogt
            | AST.Geq     -> L.build_fcmp L.Fcmp.Oge
            | _ -> raise( IllegalType )
-          ) e1_new' e2_new' "tmp" builder in 
-	let symbol_bop op = 
-	(match op with 
-	     AST.Equal -> L.build_ptrdiff
-	) e1_new' e2_new' "tmp" builder in 
+          ) e1_new' e2_new' "tmp" builder in  
         let build_ops_with_types t = 
           (match (t) with
             A.Int -> int_bop op
           | A.Num -> num_bop op
-          | A.Bool -> match t_1, t_2 with 
+          | A.Bool -> (match t_1, t_2 with 
                 A.Num, A.Num -> num_bop op
               | A.Int, A.Num -> num_bop op
               | A.Num, A.Int -> num_bop op
               | A.Int, A.Int -> int_bop op
               | A.Bool, A.Bool -> int_bop op
               | A.Symbol, A.Symbol -> L.build_icmp L.Icmp.Eq (L.build_pointercast e1_new' i32_t "e1" builder) (L.build_pointercast e2_new' i32_t "e2" builder) "tmp" builder
-              | _, _ -> raise(Failure("Unsupported usage of comparison operator"))
-          | _-> ignore( print_string "build op exception"); num_bop op
+              | _, _ -> raise(Failure("Unsupported usage of comparison operator")))
+          | _ -> raise(Failure("binops can only take symbols, ints and nums"))
           )     
   	   in (build_ops_with_types t)
 
-      | A.Unop(t, op, e) ->
+      | A.Unop(_, op, e) ->
         let e' = expr builder e in
         (match op with
            AST.Neg -> L.build_neg
@@ -424,15 +415,15 @@ let translate (program_unit_list) =
                                                               L.build_store e' s_v builder); e')
 
 
-      | A.Assign (A.ArrIdl(t, s, el), e) -> if Hashtbl.mem g_alloc s then (let pointer = Hashtbl.find g_alloc s in let el' = expr builder (List.nth el 0) in let e' = expr builder e in ignore(L.build_store e' (L.build_gep pointer [| el' |] "tmp" builder) builder); e') else (let (array_t,_,new_el) = lookup s in let new_el' = expr builder (List.nth new_el 0) in let array_t = (L.build_array_malloc (ltype_of_typ t) new_el' "arr" builder) in ignore(Hashtbl.add g_alloc s array_t); let el' = expr builder (List.nth el 0) in let e' = expr builder e in ignore(L.build_store e' (L.build_gep array_t [| el' |] "tmp" builder) builder); e') 
-      | A.Call (t, "print_int", [e]) | A.Call (t, "print_bool", [e]) ->
+      | A.Assign (A.ArrIdl(t, s, el), e) -> if Hashtbl.mem g_alloc s then (let pointer = Hashtbl.find g_alloc s in let el' = expr builder (List.nth el 0) in let e' = expr builder e in ignore(L.build_store e' (L.build_gep pointer [| el' |] "tmp" builder) builder); e') else (let (_,_,new_el) = lookup s in let new_el' = expr builder (List.nth new_el 0) in let array_t = (L.build_array_malloc (ltype_of_typ t) new_el' "arr" builder) in ignore(Hashtbl.add g_alloc s array_t); let el' = expr builder (List.nth el 0) in let e' = expr builder e in ignore(L.build_store e' (L.build_gep array_t [| el' |] "tmp" builder) builder); e') 
+      | A.Call (_, "print_int", [e]) | A.Call (_, "print_bool", [e]) ->
         L.build_call printf_func [| int_format_str ; (expr builder e) |]
           "printf" builder
-      | A.Call (t, "strcompare", [e1; e2]) -> L.build_call string_compare [| (expr builder e1); (expr builder e2) |]
+      | A.Call (_, "strcompare", [e1; e2]) -> L.build_call string_compare [| (expr builder e1); (expr builder e2) |]
           "strcmp" builder
-      | A.Call (t, "absInt", [e]) -> L.build_call abs_int [| (expr builder e) |]
+      | A.Call (_, "absInt", [e]) -> L.build_call abs_int [| (expr builder e) |]
           "absint" builder
-      | A.Call (t, "absNum", [e]) -> L.build_call abs_num [| (expr builder e) |]
+      | A.Call (_, "absNum", [e]) -> L.build_call abs_num [| (expr builder e) |]
           "absnum" builder
       | A.Call (_, "value", [e]) ->
         L.build_call value_symbol [|  (expr builder e) |]
